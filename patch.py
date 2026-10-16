@@ -1,9 +1,9 @@
 """
-Fix play button contrast when playing.
-The chip-play button turns white/light when active, but the icon
-stays light too, so the play triangle disappears.
-
-This patch forces dark icon color when playing.
+Raise contrast across the entire UI.
+- Footer text darker -> brighter
+- Muted icons brighter
+- Dim text (--text-dim) lighter so it's readable
+- Secondary text (--text-muted) brighter
 """
 
 import os
@@ -20,11 +20,81 @@ def backup(path):
 
 
 NEW_CSS = '''
-  /* ---------- FIX: PLAY BUTTON CONTRAST ---------- */
-  .chip-play {
-    background: var(--bg);
+  /* ---------- CONTRAST BOOST ---------- */
+  :root {
+    /* Brighter greys for readability on dark backgrounds */
+    --text:        #f5f5f7;    /* was #f4f4f5 — nearly white */
+    --text-muted:  #b0b0b8;    /* was #8a8a93 — now clearly readable */
+    --text-dim:    #7a7a84;    /* was #5a5a63 — visible but subdued */
+  }
+
+  /* Sidebar footer */
+  .sidebar-footer {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+  }
+
+  .sidebar-footer a {
     color: var(--text-muted);
-    border: 1px solid var(--border-hi);
+    font-weight: 500;
+  }
+
+  .sidebar-footer a:hover {
+    color: var(--text);
+  }
+
+  /* Bottom footer */
+  .footer {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .footer a {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .footer a:hover {
+    color: var(--text);
+  }
+
+  /* Nav icons — brighter by default */
+  .nav-icon {
+    color: var(--text-muted);
+  }
+
+  .nav-btn {
+    color: var(--text-muted);
+  }
+
+  .nav-btn:hover .nav-icon {
+    color: var(--text);
+  }
+
+  .nav-btn.active .nav-icon {
+    color: var(--text);
+  }
+
+  /* Nav section labels */
+  .nav-label {
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  /* Card titles and hints */
+  .card-title {
+    color: var(--text-muted);
+  }
+
+  .card-hint {
+    color: var(--text-muted);
+  }
+
+  /* Chip play buttons — brighter icons */
+  .chip-play {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.2);
+    font-weight: 700;
   }
 
   .chip-play:hover {
@@ -37,41 +107,81 @@ NEW_CSS = '''
     background: var(--text);
     color: var(--bg);
     border-color: var(--text);
-    font-size: 0.55rem;
-    line-height: 1;
   }
 
-  /* When the chip is selected, invert properly */
-  .voice-chip.selected .chip-play {
-    background: #0a0a0a;
-    color: #ffffff;
-    border-color: #0a0a0a;
+  /* Voice chip descriptions */
+  .chip-desc {
+    color: var(--text-muted);
   }
 
-  .voice-chip.selected .chip-play:hover {
-    background: #333333;
-    color: #ffffff;
-    border-color: #333333;
+  /* Selected bar */
+  .selected-bar .label {
+    color: var(--text-muted);
   }
 
-  .voice-chip.selected .chip-play.playing {
-    background: #0a0a0a;
-    color: #ffffff;
-    border-color: #0a0a0a;
+  .selected-bar .id {
+    color: var(--text-muted);
   }
 
-  /* Also fix any inline SVG inside the play button */
-  .chip-play svg {
-    width: 8px;
-    height: 8px;
-    fill: currentColor;
+  /* Status text */
+  .status {
+    color: var(--text-muted);
+  }
+
+  /* Speed label */
+  .speed-label {
+    color: var(--text-muted);
+  }
+
+  /* Filter chips */
+  .filter-chip {
+    color: var(--text-muted);
+  }
+
+  .filter-chip:hover {
+    color: var(--text);
+  }
+
+  /* Quick buttons */
+  .quick button {
+    color: var(--text-muted);
+  }
+
+  .quick button:hover {
+    color: var(--text);
+  }
+
+  /* History meta */
+  .history-item .meta {
+    color: var(--text-muted);
+  }
+
+  /* Empty states */
+  .empty {
+    color: var(--text-muted);
+  }
+
+  /* Download and secondary buttons */
+  .download-btn {
+    color: var(--text-muted);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .download-btn:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+
+  /* API code text is lighter */
+  .api-code {
+    color: #e0e0e0;
   }
 '''
 
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Play Button Contrast Fix")
+    print(" VoiceKit — Contrast Boost")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -83,7 +193,7 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    if 'FIX: PLAY BUTTON CONTRAST' in src:
+    if 'CONTRAST BOOST' in src:
         print("  Already applied.")
         return
 
@@ -92,17 +202,24 @@ def patch():
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Play button contrast fix applied")
+    print("  [OK] Contrast boost applied")
     print()
     print("=" * 60)
     print(" DONE")
     print("=" * 60)
     print()
-    print(" Fixed:")
-    print("   • Idle: muted grey on dark (readable)")
-    print("   • Hover: white bg, dark icon (clear)")
-    print("   • Playing: white bg, dark icon (visible)")
-    print("   • Selected chip: black bg, white icon (inverted)")
+    print(" Brighter now:")
+    print("   • --text:       #f5f5f7   (main text)")
+    print("   • --text-muted: #b0b0b8   (secondary text, was #8a8a93)")
+    print("   • --text-dim:   #7a7a84   (tertiary, was #5a5a63)")
+    print()
+    print(" Specifically:")
+    print("   • Footer text is now clearly readable")
+    print("   • Sidebar labels are brighter")
+    print("   • Play buttons have stronger borders + brighter icons")
+    print("   • Voice descriptions are easier to read")
+    print("   • Card titles and hints are visible")
+    print("   • API code text is lighter")
     print()
     print(" Deploy:")
     print("   vercel --prod")
