@@ -1149,6 +1149,98 @@
 
   audio.show { display: block; }
 
+
+  /* ---------- FIX: SELECTED VOICE CHIP CONTRAST ---------- */
+  .voice-chip.selected {
+    background: #ffffff;
+    border-color: #ffffff;
+  }
+
+  .voice-chip.selected .chip-name {
+    color: #0a0a0a;
+    font-weight: 700;
+  }
+
+  .voice-chip.selected .chip-desc {
+    color: rgba(10, 10, 10, 0.6);
+  }
+
+  .voice-chip.selected .chip-play {
+    background: #0a0a0a;
+    border-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .voice-chip.selected .chip-play:hover {
+    background: #333333;
+    border-color: #333333;
+  }
+
+  .voice-chip.selected::after {
+    color: #0a0a0a;
+  }
+
+  /* ---------- FIX: SELECTED VOICE BAR ---------- */
+  .selected-bar {
+    background: var(--bg-input);
+    border-color: var(--border);
+  }
+
+  .selected-bar .name {
+    color: var(--text);
+  }
+
+  .selected-bar .id {
+    color: var(--text-dim);
+    background: var(--bg);
+  }
+
+  /* ---------- FIX: FILTER CHIP ACTIVE ---------- */
+  .filter-chip.active {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #0a0a0a;
+    font-weight: 600;
+  }
+
+  .filter-chip.active:hover {
+    background: #e8e8e8;
+    border-color: #e8e8e8;
+    color: #0a0a0a;
+  }
+
+
+  /* ---------- FIX: NAV BADGE CONTRAST ---------- */
+  .nav-badge {
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .nav-btn.active .nav-badge {
+    background: #ffffff;
+    color: #0a0a0a;
+    border-color: #ffffff;
+    font-weight: 700;
+  }
+
+  /* ---------- FIX: NAV BUTTON ACTIVE STATE ---------- */
+  /* When the accent is white, active nav background should be subtle grey,
+     not white, or the text disappears. */
+
+  .nav-btn.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+  }
+
+  .nav-btn.active .nav-icon {
+    color: #ffffff;
+  }
+
+  .nav-btn.active:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
 </style>
 </head>
 <body>
