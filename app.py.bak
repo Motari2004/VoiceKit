@@ -218,36 +218,62 @@ def add_cors_headers(response):
 # ============================================================
 # UPSTREAM CALL
 # ============================================================
-def call_upstream(text, voice, speed):
-    r = requests.post(
-        f"{UPSTREAM}/gradio_api/call/tts",
-        json={"data": [text, voice, speed]},
-        timeout=UPSTREAM_TIMEOUT,
-    )
-    r.raise_for_status()
-    eid = r.json().get("event_id")
-    if not eid:
-        raise RuntimeError("Upstream did not return an event_id")
+def call_upstream(text, voice, speed, attempts=2):
+    """
+    Forward to the HF Space and return WAV bytes.
+    Retries once if the first attempt fails — the Space is often cold
+    on the first request after idle.
+    """
+    last_error = None
 
-    audio_url = None
-    for _ in range(MAX_POLLS):
-        r = requests.get(
-            f"{UPSTREAM}/gradio_api/call/tts/{eid}",
-            timeout=UPSTREAM_TIMEOUT,
-        )
-        r.raise_for_status()
-        match = re.search(r'https://[^"]+audio\.wav', r.text)
-        if match:
-            audio_url = match.group(0)
-            break
-        time.sleep(POLL_INTERVAL)
+    for attempt in range(1, attempts + 1):
+        try:
+            # ---------- STEP 1: start job ----------
+            r = requests.post(
+                f"{UPSTREAM}/gradio_api/call/tts",
+                json={"data": [text, voice, speed]},
+                timeout=UPSTREAM_TIMEOUT,
+            )
+            r.raise_for_status()
 
-    if not audio_url:
-        raise TimeoutError("Upstream did not return audio in time")
+            eid = r.json().get("event_id")
+            if not eid:
+                raise RuntimeError("Upstream did not return an event_id")
 
-    r = requests.get(audio_url, timeout=UPSTREAM_TIMEOUT)
-    r.raise_for_status()
-    return r.content
+            # ---------- STEP 2: poll for result ----------
+            audio_url = None
+            for _ in range(MAX_POLLS):
+                r = requests.get(
+                    f"{UPSTREAM}/gradio_api/call/tts/{eid}",
+                    timeout=UPSTREAM_TIMEOUT,
+                )
+                r.raise_for_status()
+                match = re.search(r'https://[^"]+audio\.wav', r.text)
+                if match:
+                    audio_url = match.group(0)
+                    break
+                time.sleep(POLL_INTERVAL)
+
+            if not audio_url:
+                raise TimeoutError("Upstream did not return audio in time")
+
+            # ---------- STEP 3: download WAV ----------
+            r = requests.get(audio_url, timeout=UPSTREAM_TIMEOUT)
+            r.raise_for_status()
+            return r.content
+
+        except (requests.Timeout, TimeoutError) as e:
+            last_error = e
+            if attempt < attempts:
+                time.sleep(1.5)  # wait before retry
+                continue
+            raise
+
+        except Exception:
+            raise
+
+    raise last_error or TimeoutError("Upstream failed")
+
 
 
 def generate_speech(text, voice="am_adam", speed=1.0):
@@ -334,13 +360,20 @@ def speak():
         )
 
     except requests.Timeout:
-        return jsonify({"error": "Upstream timeout — try again"}), 504
+        return jsonify({
+            "error": "Voice service is warming up. Try again in a moment."
+        }), 504
+    except TimeoutError:
+        return jsonify({
+            "error": "Voice service is warming up. Try again in a moment."
+        }), 504
     except requests.HTTPError as e:
-        return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
-    except TimeoutError as e:
-        return jsonify({"error": str(e)}), 504
+        return jsonify({
+            "error": f"Upstream error: {e.response.status_code}"
+        }), 502
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
+
 
 
 @app.route("/clear-cache", methods=["POST"])

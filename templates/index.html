@@ -2059,6 +2059,78 @@ document.querySelectorAll('.quick button').forEach(btn => {
   };
 });
 
+
+// ============================================================
+// DEVICE ID + PERSISTENCE
+// ============================================================
+function getDeviceId() {
+  let id = localStorage.getItem('voicekit_device_id');
+  if (!id) {
+    id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('voicekit_device_id', id);
+  }
+  return id;
+}
+
+const DEVICE_ID = getDeviceId();
+
+async function syncFavoritesFromServer() {
+  try {
+    const res = await fetch(`/favorites?device=${encodeURIComponent(DEVICE_ID)}`);
+    const data = await res.json();
+    if (Array.isArray(data.favorites)) {
+      // Merge server favorites with local
+      const merged = Array.from(new Set([...favorites, ...data.favorites]));
+      if (merged.length !== favorites.length) {
+        favorites = merged;
+        saveFavorites(favorites);
+        applyFavoritesToAllChips();
+        updateFavoriteCount();
+      }
+    }
+  } catch (e) {
+    console.warn('[favorites] sync failed:', e);
+  }
+}
+
+async function pushFavoritesToServer() {
+  try {
+    await fetch('/favorites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: DEVICE_ID, favorites })
+    });
+  } catch (e) {
+    console.warn('[favorites] push failed:', e);
+  }
+}
+
+async function loadHistoryFromServer() {
+  try {
+    const res = await fetch(`/history?device=${encodeURIComponent(DEVICE_ID)}&limit=30`);
+    const data = await res.json();
+    if (Array.isArray(data.history)) {
+      serverHistory = data.history;
+    }
+  } catch (e) {
+    console.warn('[history] load failed:', e);
+  }
+}
+
+async function pushHistoryToServer(entry) {
+  try {
+    await fetch('/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: DEVICE_ID, ...entry })
+    });
+  } catch (e) {
+    console.warn('[history] push failed:', e);
+  }
+}
+
+let serverHistory = [];
+
 // ============================================================
 // LOAD VOICES
 // ============================================================
@@ -2218,6 +2290,7 @@ function toggleFavorite(id) {
   saveFavorites(favorites);
   updateFavoriteUI(id);
   updateFavoriteCount();
+  pushFavoritesToServer();
 }
 
 function updateFavoriteUI(id) {
@@ -2371,7 +2444,7 @@ async function speak(retryCount = 0) {
     const res = await fetch(`${API_URL}/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: selectedVoiceId, speed })
+      body: JSON.stringify({ text, voice: selectedVoiceId, speed, device_id: DEVICE_ID })
     });
 
     if (!res.ok) {
@@ -2408,6 +2481,7 @@ async function speak(retryCount = 0) {
     }
 
     history.unshift({ text, voice: selectedVoiceName, speed, url, ts: Date.now(), ms });
+    pushHistoryToServer({ text, voice: selectedVoiceId, speed });
     if (history.length > 20) history.pop();
     renderHistory();
   } catch (e) {
