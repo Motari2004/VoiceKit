@@ -1,84 +1,88 @@
 """
-VoiceKit — Text-to-Speech API and Web UI
+VoiceKit API — clean routing layer on top of the HF Space.
+Users call /speak. This forwards to the Space internally.
 Deployed on Vercel as a Python serverless function.
 """
 
 import io
 import re
 import time
-import threading
 import requests
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
-# ---------- CONFIG ----------
-SPACE_URL = "https://motari-txt2speech.hf.space"
+# ---------- UPSTREAM ----------
+# Only this constant mentions Hugging Face.
+UPSTREAM = "https://motari-txt2speech.hf.space"
 
+# ---------- APP ----------
 app = Flask(__name__)
 CORS(app)
 
-_cache = {}
-_cache_lock = threading.Lock()
 
-
-# ---------- CORE ----------
-def generate_speech(text, voice="am_adam", speed=1.0):
-    key = f"{voice}|{speed}|{text}"
-    with _cache_lock:
-        if key in _cache:
-            return _cache[key]
-
-    start = requests.post(
-        f"{SPACE_URL}/gradio_api/call/tts",
+def call_upstream(text, voice, speed):
+    """Forward to the Space and return WAV bytes."""
+    # Step 1 — start job
+    r = requests.post(
+        f"{UPSTREAM}/gradio_api/call/tts",
         json={"data": [text, voice, speed]},
-        timeout=15,
+        timeout=8,
     )
-    start.raise_for_status()
-    eid = start.json().get("event_id")
-    if not eid:
-        raise RuntimeError("No event_id returned from Space")
+    r.raise_for_status()
+    eid = r.json()["event_id"]
 
-    audio_url = None
-    for _ in range(20):
-        res = requests.get(
-            f"{SPACE_URL}/gradio_api/call/tts/{eid}",
-            timeout=10,
+    # Step 2 — poll for result (short loop — Vercel timeout is 10s)
+    for _ in range(16):
+        r = requests.get(
+            f"{UPSTREAM}/gradio_api/call/tts/{eid}",
+            timeout=5,
         )
-        res.raise_for_status()
-        raw = res.text
-
-        match = re.search(r'https://[^"]+audio\.wav', raw)
+        r.raise_for_status()
+        match = re.search(r'https://[^"]+audio\.wav', r.text)
         if match:
-            audio_url = match.group(0)
-            break
+            # Step 3 — download WAV
+            audio = requests.get(match.group(0), timeout=8)
+            audio.raise_for_status()
+            return audio.content
+        time.sleep(0.3)
 
-        time.sleep(0.4)
-
-    if not audio_url:
-        raise TimeoutError("Space did not return audio in time")
-
-    audio = requests.get(audio_url, timeout=15)
-    audio.raise_for_status()
-    wav_bytes = audio.content
-
-    with _cache_lock:
-        _cache[key] = wav_bytes
-
-    return wav_bytes
+    raise TimeoutError("Upstream took too long")
 
 
-# ---------- ROUTES ----------
-@app.route("/")
-def index():
-    return render_template("index.html")
+# ============================================================
+# PUBLIC API
+# ============================================================
+
+@app.route("/speak", methods=["POST"])
+def speak():
+    try:
+        data = request.get_json() or {}
+        text = (data.get("text") or "").strip()
+        voice = (data.get("voice") or "am_adam").strip()
+        speed = float(data.get("speed", 1.0))
+
+        if not text:
+            return jsonify({"error": "Missing 'text'"}), 400
+        if len(text) > 800:
+            return jsonify({"error": "Text too long (max 800 chars)"}), 400
+        if speed < 0.5 or speed > 2.0:
+            speed = 1.0
+
+        wav = call_upstream(text, voice, speed)
+
+        return send_file(
+            io.BytesIO(wav),
+            mimetype="audio/wav",
+            as_attachment=False,
+            download_name="speech.wav",
+        )
+    except requests.Timeout:
+        return jsonify({"error": "Upstream timeout — try again"}), 504
+    except Exception as e:
+        return jsonify({"error": str(e)[:200]}), 500
 
 
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "time": time.time()})
-
-
-@app.route("/voices")
+@app.route("/voices", methods=["GET"])
 def voices():
     return jsonify({
         "voices": [
@@ -91,33 +95,21 @@ def voices():
     })
 
 
-@app.route("/speak", methods=["POST"])
-def speak():
-    try:
-        data  = request.get_json() or {}
-        text  = (data.get("text") or "").strip()
-        voice = (data.get("voice") or "am_adam").strip()
-        speed = float(data.get("speed", 1.0))
-
-        if not text:
-            return jsonify({"error": "Missing 'text'"}), 400
-        if len(text) > 800:
-            return jsonify({"error": "Text too long (max 800 chars)"}), 400
-        if speed < 0.5 or speed > 2.0:
-            speed = 1.0
-
-        wav_bytes = generate_speech(text, voice, speed)
-
-        return send_file(
-            io.BytesIO(wav_bytes),
-            mimetype="audio/wav",
-            as_attachment=False,
-            download_name=f"{voice}.wav",
-        )
-    except requests.Timeout:
-        return jsonify({"error": "Space timed out — try again"}), 504
-    except Exception as e:
-        return jsonify({"error": str(e)[:250]}), 500
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
 
 
-# ---------- NO app.run() — VERCEL HANDLES THIS ----------
+@app.route("/", methods=["GET"])
+def root():
+    return jsonify({
+        "name": "VoiceKit API",
+        "endpoints": {
+            "POST /speak": "Generate speech. Body: {text, voice, speed}",
+            "GET /voices": "List voices",
+            "GET /health": "Health check",
+        }
+    })
+
+
+# ---------- NO app.run() — Vercel imports `app` directly ----------
