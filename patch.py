@@ -1,9 +1,9 @@
 """
-Nudge the hamburger up from 30px to 22px.
+Make the hamburger button stay in place when scrolling.
+Adds explicit position: fixed on mobile.
 """
 
 import os
-import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -16,9 +16,23 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
+NEW_CSS = '''
+  /* ---------- HAMBURGER: FIXED POSITION ON MOBILE ---------- */
+  @media (max-width: 900px) {
+    .menu-toggle {
+      position: fixed !important;
+      top: 16px !important;
+      left: 16px !important;
+      z-index: 200 !important;
+      will-change: transform;
+    }
+  }
+'''
+
+
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Nudge Hamburger Up")
+    print(" VoiceKit — Fixed Hamburger")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -30,28 +44,17 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    original = src
-
-    # Replace top: 30px in the hamburger rule
-    pattern = re.compile(
-        r'(\.menu-toggle\s*\{[^}]*?top:\s*)30px(\s*!important)',
-        re.DOTALL
-    )
-
-    if pattern.search(src):
-        src = pattern.sub(r'\g<1>22px\g<2>', src)
-    else:
-        # Fallback: any top: 30px !important on .menu-toggle
-        src = src.replace("top: 30px !important", "top: 22px !important")
-
-    if src == original:
-        print("  No changes made — couldn't find top: 30px")
+    if 'HAMBURGER: FIXED POSITION ON MOBILE' in src:
+        print("  Already applied.")
         return
+
+    # Insert at the very end of the <style> block so it wins the cascade
+    src = src.replace('</style>', NEW_CSS + '\n</style>', 1)
 
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Hamburger moved up: 30px → 22px")
+    print("  [OK] Hamburger is now position: fixed")
     print()
     print(" Deploy:")
     print("   vercel --prod")

@@ -2034,7 +2034,7 @@
   /* ---------- HAMBURGER: MOVE DOWN ON MOBILE ---------- */
   @media (max-width: 900px) {
     .menu-toggle {
-      top: 30px !important;   /* was 16px — now 30px */
+      top: 22px !important;   /* was 16px — now 30px */
       left: 16px !important;
     }
   }
