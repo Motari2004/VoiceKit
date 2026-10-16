@@ -2002,6 +2002,11 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
   btn.onclick = () => {
     const view = btn.dataset.view;
 
+    // Load fresh history when History view opens
+    if (view === 'history' && typeof loadServerHistory === 'function') {
+      loadServerHistory();
+    }
+
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
@@ -2454,13 +2459,17 @@ async function speak(retryCount = 0) {
     const res = await fetch(`${API_URL}/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: selectedVoiceId, speed, device_id: DEVICE_ID })
+      body: JSON.stringify({
+        text,
+        voice: selectedVoiceId,
+        speed,
+        device_id: DEVICE_ID,
+      })
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
 
-      // Retry on 504 (timeout) — the Space is warming up
       if (res.status === 504 && retryCount < 2) {
         await new Promise(r => setTimeout(r, 2500));
         return speak(retryCount + 1);
@@ -2479,6 +2488,7 @@ async function speak(retryCount = 0) {
     const ms = Math.round(performance.now() - t0);
     setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
 
+    // Enable download
     const dlBtn = document.getElementById('downloadBtn');
     if (dlBtn) {
       dlBtn.disabled = false;
@@ -2490,10 +2500,21 @@ async function speak(retryCount = 0) {
       };
     }
 
-    history.unshift({ text, voice: selectedVoiceName, speed, url, ts: Date.now(), ms });
-    pushHistoryToServer({ text, voice: selectedVoiceId, speed });
+    // Push to local history
+    history.unshift({
+      text,
+      voice: selectedVoiceName,
+      voiceId: selectedVoiceId,
+      speed,
+      url,
+      ts: Date.now(),
+      ms
+    });
     if (history.length > 20) history.pop();
     renderHistory();
+
+    // Refresh server history list (fire and forget)
+    loadServerHistory();
   } catch (e) {
     console.error(e);
     setStatus('Error: ' + e.message, 'err');
@@ -2503,6 +2524,7 @@ async function speak(retryCount = 0) {
     if (btnIcon)    btnIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   }
 }
+
 
 
 
@@ -2555,6 +2577,7 @@ speakBtn.onclick = speak;
 // INIT
 // ============================================================
 loadVoices();
+loadServerHistory();
 updateVoiceIndicator();
 setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
 
