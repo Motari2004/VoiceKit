@@ -1,12 +1,9 @@
 """
-VoiceKit API — text-to-speech proxy.
-Deployed on Vercel as a Python serverless function.
-
-Endpoints:
-    GET  /             → API info
-    GET  /health       → health check
-    GET  /voices       → list of voices
-    POST /speak        → generate speech (returns WAV)
+VoiceKit — one URL, two faces.
+    /              → HTML UI
+    /speak         → JSON API (WAV)
+    /voices        → JSON API
+    /health        → JSON API
 """
 
 import io
@@ -14,12 +11,9 @@ import re
 import time
 import threading
 import requests
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 
-# ============================================================
-# CONFIG
-# ============================================================
 UPSTREAM = "https://motari-txt2speech.hf.space"
 
 MAX_TEXT_LENGTH  = 800
@@ -29,9 +23,6 @@ UPSTREAM_TIMEOUT = 15
 POLL_INTERVAL    = 0.4
 MAX_POLLS        = 20
 
-# ============================================================
-# VOICES
-# ============================================================
 VOICES = [
     "am_adam", "am_michael", "am_onyx", "am_puck", "am_echo",
     "am_eric", "am_fenrir", "am_liam", "am_santa",
@@ -41,60 +32,35 @@ VOICES = [
     "bf_emma", "bf_alice", "bf_isabella", "bf_lily",
 ]
 
-# ============================================================
-# APP
-# ============================================================
 app = Flask(__name__)
 CORS(app)
 
-# In-memory cache (resets between cold starts)
 _cache = {}
 _cache_lock = threading.Lock()
 
 
-# ============================================================
-# CORS — explicit headers for every response
-# ============================================================
 @app.after_request
 def add_cors_headers(response):
-    """Add CORS headers to every response so any frontend can call us."""
     response.headers["Access-Control-Allow-Origin"]  = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    response.headers["Access-Control-Max-Age"]       = "86400"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
 
-@app.route("/speak", methods=["OPTIONS"])
-@app.route("/voices", methods=["OPTIONS"])
-@app.route("/health", methods=["OPTIONS"])
-def cors_preflight():
-    """Handle browser preflight requests."""
-    return ("", 204)
-
-
-# ============================================================
-# UPSTREAM CALL
-# ============================================================
 def call_upstream(text, voice, speed):
-    """Forward to the Space and return WAV bytes."""
     r = requests.post(
         f"{UPSTREAM}/gradio_api/call/tts",
         json={"data": [text, voice, speed]},
         timeout=UPSTREAM_TIMEOUT,
     )
     r.raise_for_status()
-
     eid = r.json().get("event_id")
     if not eid:
-        raise RuntimeError("Upstream did not return an event_id")
+        raise RuntimeError("No event_id")
 
     audio_url = None
     for _ in range(MAX_POLLS):
-        r = requests.get(
-            f"{UPSTREAM}/gradio_api/call/tts/{eid}",
-            timeout=UPSTREAM_TIMEOUT,
-        )
+        r = requests.get(f"{UPSTREAM}/gradio_api/call/tts/{eid}", timeout=UPSTREAM_TIMEOUT)
         r.raise_for_status()
         match = re.search(r'https://[^"]+audio\.wav', r.text)
         if match:
@@ -103,66 +69,46 @@ def call_upstream(text, voice, speed):
         time.sleep(POLL_INTERVAL)
 
     if not audio_url:
-        raise TimeoutError("Upstream did not return audio in time")
+        raise TimeoutError("No audio URL")
 
     r = requests.get(audio_url, timeout=UPSTREAM_TIMEOUT)
     r.raise_for_status()
     return r.content
 
 
-def generate_speech(text, voice="am_adam", speed=1.0):
+def generate_speech(text, voice, speed):
     key = f"{voice}|{speed}|{text}"
     with _cache_lock:
-        cached = _cache.get(key)
-    if cached:
-        return cached
-
+        if key in _cache:
+            return _cache[key]
     wav = call_upstream(text, voice, speed)
-
     with _cache_lock:
         _cache[key] = wav
-        if len(_cache) > 100:
-            for k in list(_cache.keys())[:20]:
-                _cache.pop(k, None)
-
     return wav
 
 
-# ============================================================
-# ROUTES
-# ============================================================
+# ---------- UI ----------
 @app.route("/")
-def root():
-    return jsonify({
-        "name": "VoiceKit API",
-        "version": "1.0",
-        "endpoints": {
-            "POST /speak":  "Generate speech. Body: {text, voice, speed}",
-            "GET  /voices": "List available voices",
-            "GET  /health": "Health check",
-        },
-    })
+def index():
+    return render_template("index.html")
 
 
+# ---------- API ----------
 @app.route("/health")
 def health():
-    return jsonify({
-        "status": "ok",
-        "time": time.time(),
-        "cache_size": len(_cache),
-    })
+    return jsonify({"status": "ok", "cache_size": len(_cache)})
 
 
 @app.route("/voices")
 def voices():
-    return jsonify({
-        "count": len(VOICES),
-        "voices": VOICES,
-    })
+    return jsonify({"count": len(VOICES), "voices": VOICES})
 
 
-@app.route("/speak", methods=["POST"])
+@app.route("/speak", methods=["POST", "OPTIONS"])
 def speak():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
     try:
         data  = request.get_json() or {}
         text  = (data.get("text") or "").strip()
@@ -171,16 +117,9 @@ def speak():
 
         if not text:
             return jsonify({"error": "Missing 'text'"}), 400
-
         if len(text) > MAX_TEXT_LENGTH:
-            return jsonify({
-                "error": f"Text too long (max {MAX_TEXT_LENGTH} chars)"
-            }), 400
-
-        if speed < MIN_SPEED:
-            speed = MIN_SPEED
-        elif speed > MAX_SPEED:
-            speed = MAX_SPEED
+            return jsonify({"error": f"Text too long (max {MAX_TEXT_LENGTH})"}), 400
+        speed = max(MIN_SPEED, min(MAX_SPEED, speed))
 
         wav_bytes = generate_speech(text, voice, speed)
 
@@ -190,24 +129,7 @@ def speak():
             as_attachment=False,
             download_name=f"{voice}.wav",
         )
-
     except requests.Timeout:
-        return jsonify({"error": "Upstream timeout — try again"}), 504
-    except requests.HTTPError as e:
-        return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
-    except TimeoutError as e:
-        return jsonify({"error": str(e)}), 504
+        return jsonify({"error": "Upstream timeout"}), 504
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
-
-
-@app.route("/clear-cache", methods=["POST"])
-def clear_cache():
-    with _cache_lock:
-        _cache.clear()
-    return jsonify({"status": "cleared"})
-
-
-# ============================================================
-# NO app.run() — VERCEL IMPORTS `app` DIRECTLY
-# ============================================================
