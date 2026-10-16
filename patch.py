@@ -1,5 +1,7 @@
 """
-Set the brand version text to 1.2
+Fix: restore the sidebar footer text with version v1.2
+- Remove any misplaced v1.2 next to the brand name
+- Update the sidebar footer to say "VoiceKit v1.2"
 """
 
 import os
@@ -18,7 +20,7 @@ def backup(path):
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Set Version to 1.2")
+    print(" VoiceKit — Fix Version Placement")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -33,27 +35,36 @@ def patch():
     original = src
     changes = []
 
-    # If brand-version span exists, update it
-    if '<span class="brand-version">' in src:
-        src = re.sub(
-            r'<span class="brand-version">[^<]*</span>',
-            '<span class="brand-version">v1.2</span>',
-            src
-        )
-        changes.append("updated to v1.2")
+    # 1) Remove the wrongly-placed v1.2 next to the brand name
+    src = re.sub(
+        r'\s*<span class="brand-version">[^<]*</span>',
+        '',
+        src
+    )
+
+    # 2) Fix the sidebar footer to say "VoiceKit v1.2"
+    footer_pattern = re.compile(
+        r'<div class="sidebar-footer">.*?</div>',
+        re.DOTALL
+    )
+
+    new_footer = '''<div class="sidebar-footer">
+    <span style="opacity: 0.6;">VoiceKit v1.2</span>
+  </div>'''
+
+    if footer_pattern.search(src):
+        src = footer_pattern.sub(new_footer, src, count=1)
+        changes.append("sidebar footer")
     else:
-        # Re-add it after the brand-name span
-        pattern = re.compile(
-            r'(<span class="brand-name">VoiceKit</span>)',
-            re.DOTALL
-        )
-        if pattern.search(src):
-            src = pattern.sub(
-                r'\1\n      <span class="brand-version">v1.2</span>',
-                src,
-                count=1
+        # Insert before </aside>
+        aside_close = "</aside>"
+        if aside_close in src:
+            src = src.replace(
+                aside_close,
+                new_footer + "\n" + aside_close,
+                1
             )
-            changes.append("re-added as v1.2")
+            changes.append("sidebar footer (inserted)")
 
     if src == original:
         print("  No changes made.")
@@ -63,6 +74,10 @@ def patch():
         f.write(src)
 
     print(f"  [OK] Applied: {', '.join(changes)}")
+    print()
+    print(" Result:")
+    print("   • Removed the stray 'v1.2' next to VoiceKit brand")
+    print("   • Sidebar footer now shows: 'VoiceKit v1.2'")
     print()
     print(" Deploy:")
     print("   vercel --prod")
