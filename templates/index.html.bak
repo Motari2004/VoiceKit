@@ -1209,6 +1209,38 @@
     color: #0a0a0a;
   }
 
+
+  /* ---------- FIX: NAV BADGE CONTRAST ---------- */
+  .nav-badge {
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .nav-btn.active .nav-badge {
+    background: #ffffff;
+    color: #0a0a0a;
+    border-color: #ffffff;
+    font-weight: 700;
+  }
+
+  /* ---------- FIX: NAV BUTTON ACTIVE STATE ---------- */
+  /* When the accent is white, active nav background should be subtle grey,
+     not white, or the text disappears. */
+
+  .nav-btn.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+  }
+
+  .nav-btn.active .nav-icon {
+    color: #ffffff;
+  }
+
+  .nav-btn.active:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
 </style>
 </head>
 <body>
