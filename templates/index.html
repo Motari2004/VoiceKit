@@ -345,10 +345,10 @@
   <!-- MAIN CARD -->
   <div class="card">
     <label>What should the voice say?</label>
-    <textarea id="text" maxlength="800" placeholder="Type anything up to 800 characters...">Listen closely. You can barely tell this is not me talking.</textarea>
+    <textarea id="text" maxlength="800" placeholder="Type anything up to 800 characters...">I am the real ninja. Reggae in the valley, one drop at a time.</textarea>
 
     <div class="quick-phrases">
-      <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
+      <button data-p="I am the real ninja.">I am the real ninja</button>
       <button data-p="Hello world, this is my voice.">Hello world</button>
       <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
       <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
@@ -416,59 +416,30 @@
   <!-- API DOCS -->
   <div class="card">
     <div class="api-section">
-  <h3>API — Use it in your app</h3>
+      <h3>API — Use it in your app</h3>
 
-  <div class="api-label"><strong>POST /speak</strong> — generate speech</div>
-  <code>curl -X POST https://voicekit-api.vercel.app/speak \
+      <div class="api-label"><strong>POST</strong> to <code style="display:inline; padding:2px 6px;">/gradio_api/call/tts</code></div>
+      <code>curl -X POST https://motari-txt2speech.hf.space/gradio_api/call/tts \
   -H "Content-Type: application/json" \
-  -d '{"text":"Listen closely. You can barely tell this is not me talking.","voice":"am_adam","speed":1.0}' \
-  -o voice.wav</code>
+  -d '{"data":["Here's the test: can you tell the difference between me and a human?","am_adam",1.0]}'</code>
+      <div class="api-label">Returns: <code style="display:inline; padding:2px 6px;">{"event_id": "..."}</code></div>
 
-  <div class="api-label"><strong>Python</strong></div>
-  <code>import requests
+      <div class="api-label"><strong>GET</strong> the result</div>
+      <code>curl -N https://motari-txt2speech.hf.space/gradio_api/call/tts/YOUR_EVENT_ID</code>
+      <div class="api-label">Returns: SSE stream with a file URL pointing to the WAV.</div>
 
-r = requests.post("https://voicekit-api.vercel.app/speak", json={
-    "text": "Listen closely. You can barely tell this is not me talking.",
-    "voice": "am_adam",
-    "speed": 1.0,
-})
-open("voice.wav", "wb").write(r.content)</code>
+      <div class="api-label"><strong>Python (recommended)</strong></div>
+      <code>from gradio_client import Client
+client = Client("Motari/txt2speech")
+path, _ = client.predict("Here's the test: can you tell the difference between me and a human?d", "am_adam", 1.0, api_name="/tts")
+print(path)  # local WAV path</code>
 
-  <div class="api-label"><strong>JavaScript</strong></div>
-  <code>const res = await fetch("https://voicekit-api.vercel.app/speak", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    text: "Listen closely. You can barely tell this is not me talking.",
-    voice: "am_adam",
-    speed: 1.0
-  })
-});
-const blob = await res.blob();
-new Audio(URL.createObjectURL(blob)).play();</code>
-
-  <div class="api-label"><strong>PowerShell</strong></div>
-  <code>$body = @{
-  text  = "Listen closely. You can barely tell this is not me talking."
-  voice = "am_adam"
-  speed = 1.0
-} | ConvertTo-Json
-
-Invoke-WebRequest -Method Post `
-  -Uri "https://voicekit-api.vercel.app/speak" `
-  -ContentType "application/json" `
-  -Body $body `
-  -OutFile "voice.wav"
-
-Start-Process "voice.wav"</code>
-
-  <div class="api-label" style="margin-top:16px;">
-    <strong>Endpoints:</strong>
-    <span style="color:#22d3ee;">POST /speak</span> ·
-    <span style="color:#22d3ee;">GET /voices</span> ·
-    <span style="color:#22d3ee;">GET /health</span>
-  </div>
-</div>
+      <div class="api-label"><strong>JavaScript</strong></div>
+      <code>import { Client } from "@gradio/client";
+const app = await Client.connect("Motari/txt2speech");
+const result = await app.predict("/tts", ["Here's the test: can you tell the difference between me and a human?", "am_adam", 1.0]);
+console.log(result.data[0].url);</code>
+    </div>
   </div>
 
   <footer>
@@ -482,7 +453,7 @@ Start-Process "voice.wav"</code>
 // ============================================================
 // CONFIG
 // ============================================================
-const API_URL = "https://voicekit-api.vercel.app";
+const SPACE_URL = "https://motari-txt2speech.hf.space";
 
 // ============================================================
 // ELEMENTS
@@ -533,23 +504,66 @@ async function speak() {
   speakBtn.disabled = true;
   speakBtn.textContent = '⏳ Generating...';
   speakBtn.classList.add('pulse');
-  setStatus('Sending to VoiceKit...', 'busy');
+  setStatus('Starting job on the Space...', 'busy');
 
   const t0 = performance.now();
 
   try {
-    const res = await fetch(`${API_URL}/speak`, {
+    // ---------- STEP 1: start the job ----------
+    const startRes = await fetch(`${SPACE_URL}/gradio_api/call/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, speed })
+      body: JSON.stringify({ data: [text, voice, speed] })
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Server error ${res.status}`);
+    if (!startRes.ok) {
+      throw new Error(`Start failed (HTTP ${startRes.status})`);
     }
 
-    const blob = await res.blob();
+    const startData = await startRes.json();
+    const eid = startData.event_id;
+    if (!eid) throw new Error('No event_id returned');
+
+    setStatus(`Job started (${eid.slice(0, 8)}...). Waiting for audio...`, 'busy');
+
+    // ---------- STEP 2: poll for result ----------
+    let audioUrl = null;
+    let attempts = 0;
+    const maxAttempts = 40;   // up to ~20 seconds
+
+    while (attempts < maxAttempts && !audioUrl) {
+      const resultRes = await fetch(`${SPACE_URL}/gradio_api/call/tts/${eid}`);
+
+      if (!resultRes.ok) {
+        throw new Error(`Fetch failed (HTTP ${resultRes.status})`);
+      }
+
+      const raw = await resultRes.text();
+
+      const match = raw.match(/https:\/\/[^"]+audio\.wav/);
+      if (match) {
+        audioUrl = match[0];
+        break;
+      }
+
+      if (raw.includes('event: error')) {
+        throw new Error('Space returned an error');
+      }
+
+      attempts++;
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!audioUrl) {
+      throw new Error('Timed out waiting for audio (Space may be cold — try again)');
+    }
+
+    // ---------- STEP 3: download the WAV ----------
+    setStatus('Downloading audio...', 'busy');
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) throw new Error(`Download failed (HTTP ${audioRes.status})`);
+
+    const blob = await audioRes.blob();
     const blobUrl = URL.createObjectURL(blob);
 
     player.src = blobUrl;
