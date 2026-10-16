@@ -2079,14 +2079,11 @@ async function syncFavoritesFromServer() {
     const res = await fetch(`/favorites?device=${encodeURIComponent(DEVICE_ID)}`);
     const data = await res.json();
     if (Array.isArray(data.favorites)) {
-      // Merge server favorites with local
       const merged = Array.from(new Set([...favorites, ...data.favorites]));
-      if (merged.length !== favorites.length) {
-        favorites = merged;
-        saveFavorites(favorites);
-        applyFavoritesToAllChips();
-        updateFavoriteCount();
-      }
+      favorites = merged;
+      saveFavorites(favorites);
+      applyFavoritesToAllChips();
+      updateFavoriteCount();
     }
   } catch (e) {
     console.warn('[favorites] sync failed:', e);
@@ -2215,6 +2212,11 @@ function renderVoicePicker() {
 
     voiceList.appendChild(block);
   });
+
+  // Apply favorites immediately after render
+  if (typeof applyFavoritesToAllChips === 'function') {
+    applyFavoritesToAllChips();
+  }
 }
 
 function selectVoice(id, name, chip) {
@@ -2320,17 +2322,25 @@ function updateFavoriteCount() {
 }
 
 function applyFavoritesToAllChips() {
+  console.log('[fav] applying favorites:', favorites);
+
   document.querySelectorAll('.voice-chip').forEach(chip => {
     const id = chip.dataset.id;
-    const isFav = isFavorite(id);
+    const isFav = favorites.includes(id);
+
     chip.classList.toggle('favorited', isFav);
+
     const star = chip.querySelector('.chip-star');
     if (star) {
       star.textContent = isFav ? '★' : '☆';
       star.title = isFav ? 'Remove from favorites' : 'Add to favorites';
     }
   });
+
+  const count = document.querySelectorAll('.voice-chip.favorited').length;
+  console.log('[fav] chips marked favorited:', count);
 }
+
 
 // ============================================================
 // FILTERS
@@ -2547,6 +2557,19 @@ speakBtn.onclick = speak;
 loadVoices();
 updateVoiceIndicator();
 setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
+
+// Retry applying favorites after the chips render (catalog fetch is async)
+let _favRetries = 0;
+function retryFavorites() {
+  _favRetries++;
+  applyFavoritesToAllChips();
+  updateFavoriteCount();
+  if (_favRetries < 10) {
+    setTimeout(retryFavorites, 300);
+  }
+}
+setTimeout(retryFavorites, 400);
+
 </script>
 </body>
 </html>
