@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoiceKit — Text to Speech</title>
+<meta name="description" content="Text-to-speech for developers who ship. 54 voices, 9 languages, one endpoint.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+<style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --bg-deep: #050508;
+    --bg-mid: #0e1e2e;
+    --cyan: #22d3ee;
+    --purple: #8b5cf6;
+    --green: #34d399;
+    --red: #f87171;
+    --amber: #fbbf24;
+    --text: #eee;
+    --text-dim: #888;
+    --surface: rgba(255,255,255,0.03);
+    --surface-hover: rgba(255,255,255,0.06);
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.12);
+  }
+
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at top, var(--bg-mid), var(--bg-deep) 70%);
+    color: var(--text);
+    padding: 24px;
+    line-height: 1.5;
+  }
+
+  .container { max-width: 800px; margin: 0 auto; }
+
+  /* ---------- HEADER ---------- */
+  header { text-align: center; margin-bottom: 32px; }
+  h1 {
+    font-size: 2.4rem;
+    margin: 0 0 6px;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .tagline {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin: 0 0 8px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: rgba(34,211,238,0.1);
+    border: 1px solid rgba(34,211,238,0.3);
+    color: var(--cyan);
+    border-radius: 12px;
+    font-size: 0.7rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  /* ---------- CARD ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+  }
+
+  /* ---------- FORM ---------- */
+  label {
+    display: block;
+    font-size: 0.75rem;
+    color: #bbb;
+    margin-bottom: 6px;
+    margin-top: 16px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  label:first-of-type { margin-top: 0; }
+
+  textarea, select, input[type=range] {
+    width: 100%;
+    font-family: inherit;
+    outline: none;
+  }
+
+  textarea, select {
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.95rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  textarea:focus, select:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(34,211,238,0.1);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.5;
+  }
+
+  select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  select option {
+    background: #0e1e2e;
+    color: #eee;
+  }
+
+  .row { display: flex; gap: 14px; }
+  .row > div { flex: 1; }
+  @media (max-width: 560px) { .row { flex-direction: column; gap: 0; } }
+
+  /* ---------- SPEED SLIDER ---------- */
+  .speed-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 0;
+  }
+  .speed-row input[type=range] {
+    flex: 1;
+    accent-color: var(--cyan);
+    cursor: pointer;
+  }
+  .speed-row span {
+    font-size: 0.85rem;
+    color: var(--cyan);
+    min-width: 55px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* ---------- BUTTONS ---------- */
+  button {
+    padding: 14px 24px;
+    border-radius: 10px;
+    border: none;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    color: #0a0a0f;
+    width: 100%;
+    margin-top: 20px;
+    letter-spacing: 0.01em;
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(34,211,238,0.25);
+  }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: wait; }
+
+  /* ---------- STATUS ---------- */
+  .status {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: #9ca3af;
+    font-family: 'Consolas', 'Monaco', monospace;
+    min-height: 22px;
+    transition: color 0.2s;
+  }
+  .status.ok { color: var(--green); }
+  .status.err { color: var(--red); }
+  .status.busy { color: var(--amber); }
+
+  /* ---------- AUDIO PLAYER ---------- */
+  audio {
+    width: 100%;
+    margin-top: 16px;
+    display: none;
+    border-radius: 8px;
+  }
+  audio.show { display: block; }
+
+  /* ---------- QUICK PHRASES ---------- */
+  .quick-phrases {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .quick-phrases button {
+    padding: 5px 12px;
+    font-size: 0.72rem;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: #ccc;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .quick-phrases button:hover {
+    background: rgba(34,211,238,0.12);
+    border-color: rgba(34,211,238,0.4);
+    color: #fff;
+  }
+
+  /* ---------- HISTORY ---------- */
+  .history { margin-top: 4px; }
+  .history-item {
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #bbb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s;
+  }
+  .history-item:hover { background: rgba(0,0,0,0.3); }
+  .history-item .text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-item .meta {
+    color: #666;
+    font-size: 0.7rem;
+    margin-top: 3px;
+  }
+  .history-item button {
+    padding: 5px 12px;
+    font-size: 0.7rem;
+    background: rgba(34,211,238,0.15);
+    color: var(--cyan);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .history-item button:hover {
+    background: rgba(34,211,238,0.25);
+  }
+
+  /* ---------- API DOCS ---------- */
+  .api-section {
+    margin-top: 0;
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-family: 'Consolas', 'Monaco', monospace;
+  }
+  .api-section h3 {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    color: var(--cyan);
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: 600;
+  }
+  .api-section code {
+    display: block;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+    color: #a5f3fc;
+    font-size: 0.72rem;
+    margin: 6px 0;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.5;
+  }
+  .api-label {
+    color: #9ca3af;
+    margin: 14px 0 6px;
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 0.78rem;
+  }
+  .api-label:first-of-type { margin-top: 0; }
+  .api-label strong { color: #ddd; }
+
+  /* ---------- EMPTY STATE ---------- */
+  .empty {
+    color: #555;
+    font-size: 0.8rem;
+    font-style: italic;
+    padding: 8px 0;
+  }
+
+  /* ---------- FOOTER ---------- */
+  footer {
+    text-align: center;
+    color: #444;
+    font-size: 0.75rem;
+    padding: 20px 0;
+  }
+  footer a {
+    color: #666;
+    text-decoration: none;
+  }
+  footer a:hover { color: var(--cyan); }
+
+  /* ---------- ANIMATION ---------- */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .pulse { animation: pulse 1.5s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>VoiceKit</h1>
+    <p class="tagline">Your voice, in code.</p>
+    <span class="badge">Powered by Kokoro-82M</span>
+  </header>
+
+  <!-- MAIN CARD -->
+  <div class="card">
+    <label>What should the voice say?</label>
+    <textarea id="text" maxlength="800" placeholder="Type anything up to 800 characters...">I am the real ninja. Reggae in the valley, one drop at a time.</textarea>
+
+    <div class="quick-phrases">
+      <button data-p="I am the real ninja.">I am the real ninja</button>
+      <button data-p="Hello world, this is my voice.">Hello world</button>
+      <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
+      <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
+      <button data-p="The night is young and the bass is deep.">Night vibe</button>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="voice">
+          <optgroup label="American Male">
+            <option value="am_adam">Adam — Deep, broadcaster</option>
+            <option value="am_michael">Michael — Warm, natural</option>
+            <option value="am_onyx">Onyx — Rich, resonant</option>
+            <option value="am_puck">Puck — Playful</option>
+            <option value="am_echo">Echo — Bright</option>
+            <option value="am_eric">Eric — Clear</option>
+            <option value="am_fenrir">Fenrir — Deep</option>
+            <option value="am_liam">Liam — Warm</option>
+            <option value="am_santa">Santa — Gravelly</option>
+          </optgroup>
+          <optgroup label="British Male">
+            <option value="bm_george">George — Warm</option>
+            <option value="bm_lewis">Lewis — Deep</option>
+            <option value="bm_daniel">Daniel — Clear</option>
+            <option value="bm_fable">Fable — Storyteller</option>
+          </optgroup>
+          <optgroup label="American Female">
+            <option value="af_heart">Heart — Warm</option>
+            <option value="af_bella">Bella — Bright</option>
+            <option value="af_nicole">Nicole — Soft</option>
+            <option value="af_sarah">Sarah — Clear</option>
+            <option value="af_sky">Sky — Youthful</option>
+            <option value="af_nova">Nova — Crisp</option>
+          </optgroup>
+          <optgroup label="British Female">
+            <option value="bf_emma">Emma — Warm</option>
+            <option value="bf_alice">Alice — Clear</option>
+            <option value="bf_lily">Lily — Youthful</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <label>Speed</label>
+        <div class="speed-row">
+          <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
+          <span id="speedVal">1.00×</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="speakBtn">🔊 Speak</button>
+    <div class="status" id="status">Ready.</div>
+    <audio id="player" controls></audio>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="card">
+    <label style="margin-top:0;">Recent generations</label>
+    <div class="history" id="history">
+      <div class="empty">None yet.</div>
+    </div>
+  </div>
+
+  <!-- API DOCS -->
+  <div class="card">
+    <div class="api-section">
+      <h3>API — Use it in your app</h3>
+
+      <div class="api-label"><strong>POST</strong> to <code style="display:inline; padding:2px 6px;">/gradio_api/call/tts</code></div>
+      <code>curl -X POST https://motari-txt2speech.hf.space/gradio_api/call/tts \
+  -H "Content-Type: application/json" \
+  -d '{"data":["Hello world","am_adam",1.0]}'</code>
+      <div class="api-label">Returns: <code style="display:inline; padding:2px 6px;">{"event_id": "..."}</code></div>
+
+      <div class="api-label"><strong>GET</strong> the result</div>
+      <code>curl -N https://motari-txt2speech.hf.space/gradio_api/call/tts/YOUR_EVENT_ID</code>
+      <div class="api-label">Returns: SSE stream with a file URL pointing to the WAV.</div>
+
+      <div class="api-label"><strong>Python (recommended)</strong></div>
+      <code>from gradio_client import Client
+client = Client("Motari/txt2speech")
+path, _ = client.predict("Hello world", "am_adam", 1.0, api_name="/tts")
+print(path)  # local WAV path</code>
+
+      <div class="api-label"><strong>JavaScript</strong></div>
+      <code>import { Client } from "@gradio/client";
+const app = await Client.connect("Motari/txt2speech");
+const result = await app.predict("/tts", ["Hello world", "am_adam", 1.0]);
+console.log(result.data[0].url);</code>
+    </div>
+  </div>
+
+  <footer>
+    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank">Space</a>
+    ·
+    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank">Kokoro-82M</a>
+  </footer>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SPACE_URL = "https://motari-txt2speech.hf.space";
+
+// ============================================================
+// ELEMENTS
+// ============================================================
+const textEl    = document.getElementById('text');
+const voiceEl   = document.getElementById('voice');
+const speedEl   = document.getElementById('speed');
+const speedVal  = document.getElementById('speedVal');
+const speakBtn  = document.getElementById('speakBtn');
+const statusEl  = document.getElementById('status');
+const player    = document.getElementById('player');
+const historyEl = document.getElementById('history');
+
+const history = [];
+
+// ============================================================
+// HELPERS
+// ============================================================
+speedEl.oninput = () => {
+  speedVal.textContent = parseFloat(speedEl.value).toFixed(2) + '×';
+};
+
+function setStatus(msg, cls) {
+  statusEl.className = 'status ' + (cls || '');
+  statusEl.textContent = msg;
+}
+
+document.querySelectorAll('.quick-phrases button').forEach(btn => {
+  btn.onclick = () => {
+    textEl.value = btn.dataset.p;
+    textEl.focus();
+  };
+});
+
+// ============================================================
+// SPEAK
+// ============================================================
+async function speak() {
+  const text = textEl.value.trim();
+  if (!text) {
+    setStatus('Type something first.', 'err');
+    return;
+  }
+
+  const voice = voiceEl.value;
+  const speed = parseFloat(speedEl.value);
+
+  speakBtn.disabled = true;
+  speakBtn.textContent = '⏳ Generating...';
+  speakBtn.classList.add('pulse');
+  setStatus('Starting job on the Space...', 'busy');
+
+  const t0 = performance.now();
+
+  try {
+    // ---------- STEP 1: start the job ----------
+    const startRes = await fetch(`${SPACE_URL}/gradio_api/call/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: [text, voice, speed] })
+    });
+
+    if (!startRes.ok) {
+      throw new Error(`Start failed (HTTP ${startRes.status})`);
+    }
+
+    const startData = await startRes.json();
+    const eid = startData.event_id;
+    if (!eid) throw new Error('No event_id returned');
+
+    setStatus(`Job started (${eid.slice(0, 8)}...). Waiting for audio...`, 'busy');
+
+    // ---------- STEP 2: poll for result ----------
+    let audioUrl = null;
+    let attempts = 0;
+    const maxAttempts = 40;   // up to ~20 seconds
+
+    while (attempts < maxAttempts && !audioUrl) {
+      const resultRes = await fetch(`${SPACE_URL}/gradio_api/call/tts/${eid}`);
+
+      if (!resultRes.ok) {
+        throw new Error(`Fetch failed (HTTP ${resultRes.status})`);
+      }
+
+      const raw = await resultRes.text();
+
+      const match = raw.match(/https:\/\/[^"]+audio\.wav/);
+      if (match) {
+        audioUrl = match[0];
+        break;
+      }
+
+      if (raw.includes('event: error')) {
+        throw new Error('Space returned an error');
+      }
+
+      attempts++;
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (!audioUrl) {
+      throw new Error('Timed out waiting for audio (Space may be cold — try again)');
+    }
+
+    // ---------- STEP 3: download the WAV ----------
+    setStatus('Downloading audio...', 'busy');
+    const audioRes = await fetch(audioUrl);
+    if (!audioRes.ok) throw new Error(`Download failed (HTTP ${audioRes.status})`);
+
+    const blob = await audioRes.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    player.src = blobUrl;
+    player.classList.add('show');
+    await player.play().catch(() => {});
+
+    const ms = Math.round(performance.now() - t0);
+    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
+
+    history.unshift({ text, voice, speed, blobUrl, ts: Date.now(), ms, size: blob.size });
+    if (history.length > 20) history.pop();
+    renderHistory();
+
+  } catch (e) {
+    console.error(e);
+    setStatus('Error: ' + e.message, 'err');
+  } finally {
+    speakBtn.disabled = false;
+    speakBtn.textContent = '🔊 Speak';
+    speakBtn.classList.remove('pulse');
+  }
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory() {
+  if (!history.length) {
+    historyEl.innerHTML = '<div class="empty">None yet.</div>';
+    return;
+  }
+
+  historyEl.innerHTML = '';
+  history.forEach(h => {
+    const ts = new Date(h.ts).toLocaleTimeString();
+    const preview = h.text.length > 60 ? h.text.substring(0, 60) + '…' : h.text;
+
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    row.innerHTML =
+      '<div style="flex:1; overflow:hidden;">' +
+        '<div class="text">' + preview.replace(/</g, '&lt;') + '</div>' +
+        '<div class="meta">' + h.voice + ' · ' + h.speed + '× · ' + ts + ' · ' + h.ms + ' ms</div>' +
+      '</div>' +
+      '<button>▶ Play</button>';
+
+    row.querySelector('button').onclick = () => {
+      player.src = h.blobUrl;
+      player.classList.add('show');
+      player.play();
+    };
+
+    historyEl.appendChild(row);
+  });
+}
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+textEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    speak();
+  }
+});
+
+// ============================================================
+// WIRE UP
+// ============================================================
+speakBtn.onclick = speak;
+
+setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
+</script>
+</body>
+</html>

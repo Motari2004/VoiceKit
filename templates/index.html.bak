@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VoiceKit — Text to Speech</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: radial-gradient(circle at top, #0e1e2e, #050508 70%);
+    color: #eee; padding: 24px;
+  }
+  .container { max-width: 800px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 32px; }
+  h1 {
+    font-size: 2.2rem; margin: 0 0 6px;
+    background: linear-gradient(90deg, #22d3ee, #8b5cf6);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .tagline { color: #888; font-size: 0.95rem; margin: 0; }
+  .badge {
+    display: inline-block; padding: 3px 10px;
+    background: rgba(34,211,238,0.15);
+    border: 1px solid rgba(34,211,238,0.3);
+    color: #22d3ee; border-radius: 12px;
+    font-size: 0.7rem; margin-top: 8px;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  label {
+    display: block; font-size: 0.75rem; color: #bbb;
+    margin-bottom: 6px; margin-top: 14px;
+  }
+  label:first-of-type { margin-top: 0; }
+
+  textarea, select {
+    width: 100%; padding: 12px 14px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    color: #fff; font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+  }
+  textarea:focus, select:focus { border-color: #22d3ee; }
+  textarea { resize: vertical; min-height: 90px; }
+
+  .row { display: flex; gap: 12px; }
+  .row > div { flex: 1; }
+
+  input[type=range] { width: 100%; accent-color: #22d3ee; }
+  .speed-row { display: flex; align-items: center; gap: 12px; }
+  .speed-row input[type=range] { flex: 1; }
+  .speed-row span {
+    font-size: 0.85rem; color: #22d3ee; min-width: 55px;
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+
+  button {
+    padding: 12px 24px; border-radius: 10px; border: none;
+    font-weight: 700; cursor: pointer; font-size: 0.95rem;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(90deg, #22d3ee, #8b5cf6);
+    color: #0a0a0f; width: 100%; margin-top: 20px;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:disabled { opacity: 0.5; cursor: wait; }
+
+  .status {
+    margin-top: 16px; padding: 10px 12px;
+    background: rgba(0,0,0,0.3); border-radius: 8px;
+    font-size: 0.8rem; color: #9ca3af;
+    font-family: 'Consolas', monospace;
+    min-height: 20px;
+  }
+  .status.ok { color: #34d399; }
+  .status.err { color: #f87171; }
+
+  audio { width: 100%; margin-top: 16px; display: none; }
+
+  .history { margin-top: 16px; }
+  .history-item {
+    padding: 10px 12px; margin-bottom: 6px;
+    background: rgba(0,0,0,0.2); border-radius: 6px;
+    font-size: 0.78rem; color: #bbb;
+    display: flex; justify-content: space-between;
+    align-items: center; gap: 8px;
+  }
+  .history-item .text {
+    flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .history-item button {
+    padding: 4px 10px; font-size: 0.7rem;
+    background: rgba(34,211,238,0.15);
+    color: #22d3ee; border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .api-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-family: 'Consolas', monospace;
+  }
+  .api-section h3 {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    color: #22d3ee;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  .api-section code {
+    display: block;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 6px;
+    color: #a5f3fc;
+    font-size: 0.72rem;
+    margin: 6px 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>VoiceKit</h1>
+    <p class="tagline">Your voice, in code.</p>
+    <span class="badge">Powered by Kokoro-82M</span>
+  </header>
+
+  <div class="card">
+    <label>Text to speak</label>
+    <textarea id="text" maxlength="800">I am the real ninja. Reggae in the valley, one drop at a time.</textarea>
+
+    <div class="row">
+      <div>
+        <label>Voice</label>
+        <select id="voice">
+          <option value="am_adam">Adam — Deep American Male</option>
+          <option value="am_michael">Michael — Warm American Male</option>
+          <option value="am_onyx">Onyx — Rich American Male</option>
+          <option value="am_puck">Puck — Playful American Male</option>
+          <option value="am_echo">Echo — Bright American Male</option>
+          <option value="am_eric">Eric — Clear American Male</option>
+          <option value="am_fenrir">Fenrir — Deep American Male</option>
+          <option value="am_liam">Liam — Warm American Male</option>
+          <option value="am_santa">Santa — Gravelly American Male</option>
+          <option value="bm_george">George — Warm British Male</option>
+          <option value="bm_lewis">Lewis — Deep British Male</option>
+          <option value="bm_daniel">Daniel — Clear British Male</option>
+          <option value="bm_fable">Fable — British Storyteller</option>
+          <option value="af_heart">Heart — Warm American Female</option>
+          <option value="af_bella">Bella — Bright American Female</option>
+          <option value="af_nicole">Nicole — Soft American Female</option>
+          <option value="af_sarah">Sarah — Clear American Female</option>
+          <option value="af_sky">Sky — Youthful American Female</option>
+          <option value="af_nova">Nova — Crisp American Female</option>
+          <option value="bf_emma">Emma — Warm British Female</option>
+          <option value="bf_alice">Alice — Clear British Female</option>
+          <option value="bf_lily">Lily — Youthful British Female</option>
+        </select>
+      </div>
+      <div>
+        <label>Speed</label>
+        <div class="speed-row">
+          <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
+          <span id="speedVal">1.00×</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="speakBtn">🔊 Speak</button>
+    <div class="status" id="status">Ready.</div>
+    <audio id="player" controls></audio>
+  </div>
+
+  <div class="card">
+    <label style="margin-top:0;">Recent generations</label>
+    <div class="history" id="history">
+      <div style="color:#666; font-size:0.8rem;">None yet.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="api-section">
+      <h3>API — Use it in your app</h3>
+      <div style="color:#9ca3af; margin-bottom:10px;">
+        <strong>POST /speak</strong> — returns WAV audio
+      </div>
+      <code>curl -X POST http://localhost:5000/speak \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello world","voice":"am_adam","speed":1.0}' \
+  -o output.wav</code>
+
+      <div style="color:#9ca3af; margin: 12px 0 10px;">
+        <strong>Python</strong>
+      </div>
+      <code>import requests
+r = requests.post("http://localhost:5000/speak", json={
+    "text": "Hello world",
+    "voice": "am_adam",
+    "speed": 1.0
+})
+open("out.wav", "wb").write(r.content)</code>
+
+      <div style="color:#9ca3af; margin: 12px 0 10px;">
+        <strong>JavaScript</strong>
+      </div>
+      <code>const res = await fetch("http://localhost:5000/speak", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    text: "Hello world", voice: "am_adam", speed: 1.0
+  })
+});
+const blob = await res.blob();
+new Audio(URL.createObjectURL(blob)).play();</code>
+
+      <div style="color:#666; font-size:0.72rem; margin-top:12px;">
+        Other endpoints: <strong>GET /voices</strong>, <strong>GET /health</strong>, <strong>POST /speak-b64</strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+
+const textEl   = document.getElementById('text');
+const voiceEl  = document.getElementById('voice');
+const speedEl  = document.getElementById('speed');
+const speedVal = document.getElementById('speedVal');
+const speakBtn = document.getElementById('speakBtn');
+const statusEl = document.getElementById('status');
+const player   = document.getElementById('player');
+const historyEl = document.getElementById('history');
+
+const history = [];
+
+speedEl.oninput = () => {
+  speedVal.textContent = parseFloat(speedEl.value).toFixed(2) + '×';
+};
+
+function setStatus(msg, cls) {
+  statusEl.className = 'status ' + (cls || '');
+  statusEl.textContent = msg;
+}
+
+async function speak() {
+  const text = textEl.value.trim();
+  if (!text) { setStatus('Type something first.', 'err'); return; }
+
+  const voice = voiceEl.value;
+  const speed = parseFloat(speedEl.value);
+
+  speakBtn.disabled = true;
+  speakBtn.textContent = 'Generating...';
+  setStatus('Calling VoiceKit API...');
+
+  const t0 = performance.now();
+  try {
+    const res = await fetch(`${API}/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice, speed })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Server error ' + res.status);
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    player.src = url;
+    player.style.display = 'block';
+    player.play();
+
+    const ms = Math.round(performance.now() - t0);
+    setStatus('✓ Ready in ' + ms + ' ms — ' + (blob.size / 1024).toFixed(1) + ' KB', 'ok');
+
+    history.unshift({ text, voice, speed, url, ts: Date.now(), ms });
+    if (history.length > 15) history.pop();
+    renderHistory();
+
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'err');
+  } finally {
+    speakBtn.disabled = false;
+    speakBtn.textContent = '🔊 Speak';
+  }
+}
+
+function renderHistory() {
+  if (!history.length) {
+    historyEl.innerHTML = '<div style="color:#666; font-size:0.8rem;">None yet.</div>';
+    return;
+  }
+  historyEl.innerHTML = '';
+  history.forEach(h => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    const ts = new Date(h.ts).toLocaleTimeString();
+    const preview = h.text.length > 50 ? h.text.substring(0, 50) + '...' : h.text;
+    row.innerHTML =
+      '<span class="text">' + preview.replace(/</g, '&lt;') + ' — <em>' + h.voice + '</em></span>' +
+      '<button>▶ ' + h.ms + 'ms</button>';
+    row.querySelector('button').onclick = () => {
+      player.src = h.url;
+      player.play();
+    };
+    historyEl.appendChild(row);
+  });
+}
+
+speakBtn.onclick = speak;
+textEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    speak();
+  }
+});
+</script>
+</body>
+</html>
