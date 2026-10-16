@@ -2606,18 +2606,37 @@ window.loadServerHistory = async function () {
           '<div class="meta">' + h.voice + ' \u00b7 ' + h.speed + '\u00d7 \u00b7 ' + ts + '</div>' +
         '</div>';
 
-      const btn = document.createElement('button');
-      btn.textContent = 'Regenerate';
+            const btn = document.createElement('button');
+      btn.textContent = '▶ Replay';
+
       btn.onclick = () => {
-        document.getElementById('text').value = h.text;
-        document.getElementById('speed').value = h.speed;
-        document.getElementById('speedVal').textContent = h.speed.toFixed(2) + '\u00d7';
-        if (typeof selectedVoiceId !== 'undefined') selectedVoiceId = h.voice;
-        if (typeof selectedVoiceName !== 'undefined') selectedVoiceName = h.voice;
-        if (typeof updateVoiceIndicator === 'function') updateVoiceIndicator();
-        const genBtn = document.querySelector('.nav-btn[data-view="generate"]');
-        if (genBtn) genBtn.click();
-        setTimeout(() => { if (typeof speak === 'function') speak(); }, 200);
+        // If Cloudinary URL exists, play it instantly
+        if (h.audio_url) {
+          const audio = new Audio(h.audio_url);
+          audio.play().catch(e => console.error('Playback failed:', e));
+          return;
+        }
+
+        // Fallback: regenerate on the server
+        btn.disabled = true;
+        btn.textContent = '⏳ Loading...';
+        fetch('/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: h.text,
+            voice: h.voice,
+            speed: h.speed,
+            device_id: (typeof DEVICE_ID !== 'undefined') ? DEVICE_ID : ''
+          })
+        })
+        .then(r => r.ok ? r.blob() : Promise.reject(new Error('Replay failed')))
+        .then(blob => { new Audio(URL.createObjectURL(blob)).play(); })
+        .catch(e => { console.error('Replay error:', e); })
+        .finally(() => {
+          btn.disabled = false;
+          btn.textContent = '▶ Replay';
+        });
       };
       row.appendChild(btn);
       container.appendChild(row);
