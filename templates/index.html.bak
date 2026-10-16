@@ -1641,21 +1641,7 @@
      ============================================================ -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="brand-mark" style="color: #0a0a0a;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:22px; height:22px;">
-        <!-- Capsule body -->
-        <rect x="8" y="2" width="8" height="12" rx="4" ry="4"></rect>
-        <!-- Grille bars -->
-        <line x1="8" y1="5" x2="16" y2="5"></line>
-        <line x1="8" y1="7.5" x2="16" y2="7.5"></line>
-        <line x1="8" y1="10" x2="16" y2="10"></line>
-        <!-- Yoke (u-shaped bracket) -->
-        <path d="M5 9 v3 a7 7 0 0 0 14 0 v-3"></path>
-        <!-- Stand -->
-        <line x1="12" y1="19" x2="12" y2="22"></line>
-        <line x1="9" y1="22" x2="15" y2="22"></line>
-      </svg>
-    </div>
+    <img src="/static/mic.png" alt="VoiceKit" style="width:36px; height:36px; border-radius:9px; object-fit:cover; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35);">
     <div class="brand-text">
       <span class="brand-name">VoiceKit</span>
       <span class="brand-version">v1.0</span>
