@@ -1787,10 +1787,28 @@
   <section class="view" id="view-history">
     <div class="view-header">
       <h1 class="view-title">History</h1>
-      <p class="view-subtitle">Your recent generations in this session.</p>
+      <p class="view-subtitle">Your recent generations.</p>
     </div>
 
     <div class="card">
+      <div class="card-header">
+        <span class="card-title">Generations</span>
+        <button id="clearHistoryBtn" style="
+          padding: 6px 12px;
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.15);
+          border-radius: 6px;
+          color: #b0b0b8;
+          font-family: inherit;
+          font-size: 0.72rem;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s;
+        " onmouseover="this.style.background='rgba(239,68,68,0.1)'; this.style.borderColor='rgba(239,68,68,0.4)'; this.style.color='#ef4444';"
+           onmouseout="this.style.background='transparent'; this.style.borderColor='rgba(255,255,255,0.15)'; this.style.color='#b0b0b8';">
+          Clear all
+        </button>
+      </div>
       <div id="history">
         <div class="empty">Nothing here yet — try generating some speech.</div>
       </div>
@@ -2689,6 +2707,55 @@ function retryFavorites() {
   }
 }
 setTimeout(retryFavorites, 400);
+
+
+// ============================================================
+// CLEAR HISTORY
+// ============================================================
+async function clearAllHistory() {
+  if (!confirm('Clear all generations for this device?')) return;
+
+  const did = (typeof DEVICE_ID !== 'undefined') ? DEVICE_ID : '';
+  try {
+    await fetch('/history', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: did })
+    });
+
+    // Clear local array too
+    if (typeof serverHistory !== 'undefined') {
+      serverHistory = [];
+    }
+
+    // Clear the DOM
+    const container = document.getElementById('history');
+    if (container) {
+      container.innerHTML = '<div class="empty">Nothing here yet — try generating some speech.</div>';
+    }
+
+    console.log('[history] cleared');
+  } catch (e) {
+    console.error('clear history failed:', e);
+    alert('Could not clear history. Try again.');
+  }
+}
+
+// Wire the button when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('clearHistoryBtn');
+  if (btn) {
+    btn.onclick = clearAllHistory;
+  }
+});
+
+// Also try immediately in case DOMContentLoaded already fired
+setTimeout(() => {
+  const btn = document.getElementById('clearHistoryBtn');
+  if (btn && !btn.onclick) {
+    btn.onclick = clearAllHistory;
+  }
+}, 300);
 
 </script>
 </body>

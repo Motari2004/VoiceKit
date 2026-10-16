@@ -356,33 +356,88 @@ def generate_speech(text, voice, speed):
 
 
 # ============================================================
-# CLOUDINARY UPLOAD
+# CLOUDINARY
 # ============================================================
-def upload_to_cloudinary(wav_bytes, voice, device_id):
-    """Upload WAV bytes to Cloudinary. Returns secure_url or None."""
-    if not os.environ.get("CLOUDINARY_URL"):
-        return None
-    try:
-        import cloudinary
-        import cloudinary.uploader
+import cloudinary
+import cloudinary.uploader
 
-        # Public ID: unique per generation
+_cloudinary_ready = False
+
+def _init_cloudinary():
+    """Read credentials from env vars and configure the SDK."""
+    global _cloudinary_ready
+
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    api_key    = os.environ.get("CLOUDINARY_API_KEY", "").strip()
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET", "").strip()
+
+    # Fallback: parse CLOUDINARY_URL if present
+    if not (cloud_name and api_key and api_secret):
+        url = os.environ.get("CLOUDINARY_URL", "").strip()
+        if url.startswith("cloudinary://"):
+            try:
+                body = url.replace("cloudinary://", "")
+                creds, cloud_name = body.split("@", 1)
+                api_key, api_secret = creds.split(":", 1)
+            except Exception as e:
+                print(f"[cloudinary] could not parse CLOUDINARY_URL: {e}")
+
+    print(f"[cloudinary] env check: cloud={'set' if cloud_name else 'MISSING'} "
+          f"key={'set' if api_key else 'MISSING'} "
+          f"secret={'set' if api_secret else 'MISSING'}")
+
+    if not (cloud_name and api_key and api_secret):
+        print("[cloudinary] not configured — uploads will be skipped")
+        _cloudinary_ready = False
+        return
+
+    try:
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True,
+        )
+        _cloudinary_ready = True
+        print(f"[cloudinary] configured for cloud: {cloud_name}")
+    except Exception as e:
+        print(f"[cloudinary] config failed: {e}")
+        _cloudinary_ready = False
+
+
+# Run at import
+_init_cloudinary()
+
+
+def upload_to_cloudinary(wav_bytes, voice, device_id=""):
+    """Upload WAV bytes to Cloudinary. Returns secure_url or None."""
+    if not _cloudinary_ready:
+        print("[cloudinary] upload skipped: not configured")
+        return None
+
+    try:
         import hashlib
         public_id = "voicekit/" + hashlib.sha1(
             (voice + str(time.time()) + device_id).encode()
-        ).hexdigest()[:20]
+        ).hexdigest()[:24]
+
+        print(f"[cloudinary] uploading {len(wav_bytes)} bytes as {public_id}.wav...")
 
         result = cloudinary.uploader.upload(
             io.BytesIO(wav_bytes),
-            resource_type="video",  # Cloudinary uses 'video' for audio
+            resource_type="video",
             public_id=public_id,
             format="wav",
-            overwrite=True,
+            overwrite=False,
         )
-        return result.get("secure_url")
+        url = result.get("secure_url")
+        print(f"[cloudinary] upload OK: {url}")
+        return url
     except Exception as e:
-        print(f"[cloudinary] upload failed: {e}")
+        print(f"[cloudinary] upload FAILED: {type(e).__name__}: {e}")
         return None
+
+
 
 # ============================================================
 # ROUTES
@@ -431,18 +486,32 @@ def speak():
 
         speed = max(MIN_SPEED, min(MAX_SPEED, speed))
 
-        # 1. Generate the audio (blocking — user waits for this)
+        # 1. Generate audio
+        print(f"[speak] generating: {text[:40]!r} voice={voice} speed={speed}")
         wav_bytes = generate_speech(text, voice, speed)
+        print(f"[speak] generated {len(wav_bytes)} bytes")
 
-        # 2. Kick off upload + history save in the background
+        # 2. Upload to Cloudinary FIRST (synchronous, blocking)
+        audio_url = None
         if device_id:
-            threading.Thread(
-                target=_background_save,
-                args=(wav_bytes, voice, device_id, text, speed),
-                daemon=True,
-            ).start()
+            print(f"[speak] uploading to cloudinary...")
+            audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
+            print(f"[speak] cloudinary result: {audio_url}")
 
-        # 3. Return the WAV to the user immediately
+        # 3. Save to history
+        if device_id and DATABASE_URL:
+            try:
+                init_db()
+                db_execute(
+                    "INSERT INTO history (device_id, text, voice, speed, audio_url) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (device_id, text[:800], voice, speed, audio_url),
+                )
+                print(f"[speak] history saved with audio_url={audio_url}")
+            except Exception as e:
+                print(f"[speak] history insert failed: {e}")
+
+        # 4. Return WAV
         return send_file(
             io.BytesIO(wav_bytes),
             mimetype="audio/wav",
@@ -457,29 +526,9 @@ def speak():
     except requests.HTTPError as e:
         return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)[:250]}), 500
-
-
-def _background_save(wav_bytes, voice, device_id, text, speed):
-    """Upload to Cloudinary + save history. Runs after the response."""
-    audio_url = None
-    try:
-        if _cloudinary_ready:
-            audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
-    except Exception as e:
-        print(f"[cloudinary] background upload failed: {e}")
-
-    try:
-        if DATABASE_URL:
-            init_db()
-            db_execute(
-                "INSERT INTO history (device_id, text, voice, speed, audio_url) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (device_id, text[:800], voice, speed, audio_url),
-            )
-            print(f"[history] saved (audio_url={audio_url})")
-    except Exception as e:
-        print(f"[db] history insert failed: {e}")
 
 
 
