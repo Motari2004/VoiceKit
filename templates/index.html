@@ -2051,6 +2051,97 @@
     }
   }
 
+
+  /* ---------- SIDEBAR: FIT IN VIEWPORT (MOBILE) ---------- */
+  @media (max-width: 900px) {
+    .sidebar {
+      padding-top: 76px !important;
+      padding-bottom: 16px !important;
+      overflow-y: hidden !important;   /* no scroll inside the sidebar */
+      height: 100vh !important;
+      height: 100dvh !important;       /* dynamic viewport height for mobile browsers */
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* Brand — tighter */
+    .sidebar-brand {
+      padding: 4px 10px 12px !important;
+      margin-bottom: 4px !important;
+    }
+
+    /* Nav sections — tighter spacing */
+    .nav-section {
+      margin-bottom: 12px !important;
+    }
+
+    .nav-label {
+      font-size: 0.6rem !important;
+      margin-bottom: 4px !important;
+      padding: 0 10px !important;
+    }
+
+    .nav-btn {
+      padding: 7px 10px !important;
+      font-size: 0.82rem !important;
+      gap: 9px !important;
+    }
+
+    .nav-icon {
+      width: 15px !important;
+      height: 15px !important;
+    }
+
+    .nav-badge {
+      font-size: 0.6rem !important;
+      padding: 1px 5px !important;
+    }
+
+    /* Footer pinned to the bottom, smaller */
+    .sidebar-footer {
+      margin-top: auto !important;
+      padding-top: 12px !important;
+      font-size: 0.68rem !important;
+    }
+  }
+
+  /* Extra small phones — squeeze a bit more */
+  @media (max-width: 480px) {
+    .sidebar {
+      padding-top: 72px !important;
+    }
+
+    .sidebar-brand {
+      padding: 2px 10px 10px !important;
+    }
+
+    .nav-section {
+      margin-bottom: 10px !important;
+    }
+
+    .nav-btn {
+      padding: 6px 10px !important;
+      font-size: 0.78rem !important;
+    }
+
+    .nav-icon {
+      width: 14px !important;
+      height: 14px !important;
+    }
+  }
+
+  /* Landscape phones — no vertical room, use two columns */
+  @media (max-height: 500px) and (orientation: landscape) {
+    .sidebar {
+      padding-top: 12px !important;
+      overflow-y: auto !important;
+    }
+
+    .sidebar-brand {
+      padding: 0 10px 8px !important;
+    }
+  }
+
 </style>
   <link rel="apple-touch-icon" href="/static/mic.png">
 </head>
