@@ -1,9 +1,9 @@
 """
-Move the hamburger button down on mobile so it aligns
-with the sidebar's top padding.
+Nudge the hamburger up from 30px to 22px.
 """
 
 import os
+import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -16,20 +16,9 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-NEW_CSS = '''
-  /* ---------- HAMBURGER: MOVE DOWN ON MOBILE ---------- */
-  @media (max-width: 900px) {
-    .menu-toggle {
-      top: 30px !important;   /* was 16px — now 30px */
-      left: 16px !important;
-    }
-  }
-'''
-
-
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Move Hamburger Down")
+    print(" VoiceKit — Nudge Hamburger Up")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -41,16 +30,28 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    if 'HAMBURGER: MOVE DOWN ON MOBILE' in src:
-        print("  Already applied.")
-        return
+    original = src
 
-    src = src.replace('</style>', NEW_CSS + '\n</style>', 1)
+    # Replace top: 30px in the hamburger rule
+    pattern = re.compile(
+        r'(\.menu-toggle\s*\{[^}]*?top:\s*)30px(\s*!important)',
+        re.DOTALL
+    )
+
+    if pattern.search(src):
+        src = pattern.sub(r'\g<1>22px\g<2>', src)
+    else:
+        # Fallback: any top: 30px !important on .menu-toggle
+        src = src.replace("top: 30px !important", "top: 22px !important")
+
+    if src == original:
+        print("  No changes made — couldn't find top: 30px")
+        return
 
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Hamburger moved down to 30px")
+    print("  [OK] Hamburger moved up: 30px → 22px")
     print()
     print(" Deploy:")
     print("   vercel --prod")
