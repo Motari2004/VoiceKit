@@ -1307,8 +1307,7 @@
   </div>
 
   <div class="sidebar-footer">
-    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank" rel="noopener">Space</a>
-    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener">Kokoro-82M</a>
+    <a href="#" onclick="return false;" style="pointer-events:none; opacity:0.4;">VoiceKit v1.0</a>
   </div>
 </aside>
 
@@ -1546,7 +1545,7 @@ new Audio(URL.createObjectURL(blob)).play();</code>
     <div class="card">
       <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
         VoiceKit is a text-to-speech interface built on top of the open-source
-        Kokoro-82M model. It runs on Hugging Face Spaces and is proxied through
+        -82M model. It runs on  Spaces and is proxied through
         Vercel for fast global delivery.
       </p>
       <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
@@ -1554,7 +1553,7 @@ new Audio(URL.createObjectURL(blob)).play();</code>
         no signup, no key, no rate limit beyond the Space's queue.
       </p>
       <p style="color: var(--text-dim); font-size: 0.85rem; line-height: 1.7;">
-        Built with Flask, ONNX, and Kokoro-82M. Made with care.
+        Built with Flask, ONNX, and -82M. Made with care.
       </p>
     </div>
 
@@ -1563,9 +1562,8 @@ new Audio(URL.createObjectURL(blob)).play();</code>
         <span class="card-title">Links</span>
       </div>
       <div style="display: flex; flex-direction: column; gap: 8px;">
-        <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Hugging Face Space →</a>
-        <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Kokoro-82M Model →</a>
-        <a href="https://voicekit-prod.vercel.app/voices" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0;">Voice Catalog API →</a>
+        <a href="https://voicekit-prod.vercel.app/voices" target="_blank" rel="noopener" style="color: var(--text); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Voice Catalog API →</a>
+        <a href="https://voicekit-prod.vercel.app/health" target="_blank" rel="noopener" style="color: var(--text); text-decoration: none; font-size: 0.85rem; padding: 8px 0;">Service Status →</a>
       </div>
     </div>
   </section>
@@ -1882,19 +1880,19 @@ async function previewVoice(voiceId, btn) {
 // ============================================================
 // SPEAK
 // ============================================================
-async function speak() {
+async function speak(retryCount = 0) {
   const text = textEl.value.trim();
   if (!text) { setStatus('Type something first.', 'err'); return; }
 
   const speed = parseFloat(speedEl.value);
+  const isRetry = retryCount > 0;
 
-  // Set loading state (defensively)
   speakBtn.disabled = true;
   const btnContent = document.getElementById('speakBtnContent');
   const btnIcon    = document.getElementById('speakIcon');
-  if (btnContent) btnContent.textContent = 'Generating...';
+  if (btnContent) btnContent.textContent = isRetry ? 'Warming up...' : 'Generating...';
   if (btnIcon)    btnIcon.innerHTML = '<div class="spinner"></div>';
-  setStatus('Generating audio...', 'busy');
+  setStatus(isRetry ? 'Voice service warming up, retrying...' : 'Generating audio...', 'busy');
 
   const t0 = performance.now();
 
@@ -1907,6 +1905,13 @@ async function speak() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+
+      // Retry on 504 (timeout) — the Space is warming up
+      if (res.status === 504 && retryCount < 2) {
+        await new Promise(r => setTimeout(r, 2500));
+        return speak(retryCount + 1);
+      }
+
       throw new Error(err.error || `Server error ${res.status}`);
     }
 
@@ -1920,7 +1925,6 @@ async function speak() {
     const ms = Math.round(performance.now() - t0);
     setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
 
-    // Enable download button
     const dlBtn = document.getElementById('downloadBtn');
     if (dlBtn) {
       dlBtn.disabled = false;
@@ -1944,6 +1948,7 @@ async function speak() {
     if (btnIcon)    btnIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   }
 }
+
 
 
 // ============================================================
