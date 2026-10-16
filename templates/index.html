@@ -1582,6 +1582,52 @@
     margin-left: 4px;
   }
 
+
+  /* ---------- FIX: HISTORY REPLAY BUTTON CONTRAST ---------- */
+  .history-item button {
+    padding: 5px 11px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #b0b0b8;
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .history-item button:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #0a0a0a;   /* DARK text on white background */
+    font-weight: 600;
+  }
+
+  .history-item button:active {
+    transform: scale(0.98);
+  }
+
+  .history-item button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  /* Playing state — keep readable */
+  .history-item button[data-playing="true"] {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .history-item button[data-playing="true"]:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #0a0a0a;
+  }
+
 </style>
 </head>
 <body>

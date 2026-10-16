@@ -2624,18 +2624,62 @@ window.loadServerHistory = async function () {
           '<div class="meta">' + h.voice + ' \u00b7 ' + h.speed + '\u00d7 \u00b7 ' + ts + '</div>' +
         '</div>';
 
-            const btn = document.createElement('button');
+                  const btn = document.createElement('button');
       btn.textContent = '▶ Replay';
+      btn.dataset.playing = 'false';
 
       btn.onclick = () => {
-        // If Cloudinary URL exists, play it instantly
+        // If already playing this one, stop it
+        if (btn.dataset.playing === 'true' && btn._audio) {
+          btn._audio.pause();
+          btn._audio.currentTime = 0;
+          btn._audio = null;
+          btn.dataset.playing = 'false';
+          btn.textContent = '▶ Replay';
+          btn.style.background = '';
+          btn.style.borderColor = '';
+          btn.style.color = '';
+          return;
+        }
+
+        // Stop any other playing audio first
+        document.querySelectorAll('button[data-playing="true"]').forEach(other => {
+          if (other !== btn && other._audio) {
+            other._audio.pause();
+            other._audio.currentTime = 0;
+            other._audio = null;
+          }
+          other.dataset.playing = 'false';
+          other.textContent = '▶ Replay';
+          other.style.background = '';
+          other.style.borderColor = '';
+          other.style.color = '';
+        });
+
+        // Mark as playing
+        btn.dataset.playing = 'true';
+        btn.textContent = '▶ Playing...';
+        btn.style.background = 'rgba(255,255,255,0.12)';
+        btn.style.borderColor = 'rgba(255,255,255,0.3)';
+        btn.style.color = '#ffffff';
+
+        // If Cloudinary URL exists, play it
         if (h.audio_url) {
           const audio = new Audio(h.audio_url);
+          btn._audio = audio;
+          audio.onended = () => {
+            btn.dataset.playing = 'false';
+            btn.textContent = '▶ Replay';
+            btn._audio = null;
+            btn.style.background = '';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+          };
           audio.play().catch(e => console.error('Playback failed:', e));
           return;
         }
 
-        // Fallback: regenerate on the server
+        // Fallback: regenerate
         btn.disabled = true;
         btn.textContent = '⏳ Loading...';
         fetch('/speak', {
@@ -2649,11 +2693,30 @@ window.loadServerHistory = async function () {
           })
         })
         .then(r => r.ok ? r.blob() : Promise.reject(new Error('Replay failed')))
-        .then(blob => { new Audio(URL.createObjectURL(blob)).play(); })
-        .catch(e => { console.error('Replay error:', e); })
+        .then(blob => {
+          const audio = new Audio(URL.createObjectURL(blob));
+          btn._audio = audio;
+          btn.textContent = '▶ Playing...';
+          audio.onended = () => {
+            btn.dataset.playing = 'false';
+            btn.textContent = '▶ Replay';
+            btn._audio = null;
+            btn.style.background = '';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+          };
+          audio.play();
+        })
+        .catch(e => {
+          console.error('Replay error:', e);
+          btn.dataset.playing = 'false';
+          btn.textContent = '▶ Replay';
+          btn.style.background = '';
+          btn.style.borderColor = '';
+          btn.style.color = '';
+        })
         .finally(() => {
           btn.disabled = false;
-          btn.textContent = '▶ Replay';
         });
       };
       row.appendChild(btn);
