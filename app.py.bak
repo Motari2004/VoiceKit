@@ -304,36 +304,78 @@ def db_execute(query, params=None, fetch=False, fetch_one=False):
 # ============================================================
 # UPSTREAM
 # ============================================================
-def call_upstream(text, voice, speed):
-    r = requests.post(
-        f"{UPSTREAM}/gradio_api/call/tts",
-        json={"data": [text, voice, speed]},
-        timeout=UPSTREAM_TIMEOUT,
-    )
-    r.raise_for_status()
-    eid = r.json().get("event_id")
-    if not eid:
-        raise RuntimeError("No event_id")
+def call_upstream(text, voice, speed, attempts=3):
+    """
+    Forward to the HF Space. Retries up to `attempts` times with
+    increasing delay. Returns WAV bytes on success, raises on final failure.
+    """
+    last_error = None
 
-    audio_url = None
-    for _ in range(MAX_POLLS):
-        r = requests.get(
-            f"{UPSTREAM}/gradio_api/call/tts/{eid}",
-            timeout=UPSTREAM_TIMEOUT,
-        )
-        r.raise_for_status()
-        match = re.search(r'https://[^"]+audio\.wav', r.text)
-        if match:
-            audio_url = match.group(0)
-            break
-        time.sleep(POLL_INTERVAL)
+    for attempt in range(1, attempts + 1):
+        try:
+            if attempt > 1:
+                # Wait progressively longer between retries
+                delay = 2 + (attempt - 1) * 2   # 4s, 6s
+                print(f"[upstream] retry {attempt}/{attempts} after {delay}s...")
+                time.sleep(delay)
 
-    if not audio_url:
-        raise TimeoutError("No audio URL")
+            print(f"[upstream] attempt {attempt}/{attempts}")
 
-    r = requests.get(audio_url, timeout=UPSTREAM_TIMEOUT)
-    r.raise_for_status()
-    return r.content
+            # Step 1: start job
+            r = requests.post(
+                f"{UPSTREAM}/gradio_api/call/tts",
+                json={"data": [text, voice, speed]},
+                timeout=UPSTREAM_TIMEOUT,
+            )
+            r.raise_for_status()
+
+            eid = r.json().get("event_id")
+            if not eid:
+                raise RuntimeError("No event_id returned")
+
+            # Step 2: poll for result
+            audio_url = None
+            for _ in range(MAX_POLLS):
+                r = requests.get(
+                    f"{UPSTREAM}/gradio_api/call/tts/{eid}",
+                    timeout=UPSTREAM_TIMEOUT,
+                )
+                r.raise_for_status()
+                match = re.search(r'https://[^"]+audio\.wav', r.text)
+                if match:
+                    audio_url = match.group(0)
+                    break
+                time.sleep(POLL_INTERVAL)
+
+            if not audio_url:
+                raise TimeoutError("No audio URL returned")
+
+            # Step 3: download WAV
+            r = requests.get(audio_url, timeout=UPSTREAM_TIMEOUT)
+            r.raise_for_status()
+
+            print(f"[upstream] success on attempt {attempt}")
+            return r.content
+
+        except (requests.Timeout, TimeoutError) as e:
+            last_error = e
+            print(f"[upstream] attempt {attempt} failed: {type(e).__name__}")
+            continue
+
+        except requests.HTTPError as e:
+            last_error = e
+            print(f"[upstream] HTTP error on attempt {attempt}: {e}")
+            continue
+
+        except Exception as e:
+            last_error = e
+            print(f"[upstream] unexpected error: {type(e).__name__}: {e}")
+            continue
+
+    print(f"[upstream] all {attempts} attempts failed")
+    raise last_error or TimeoutError("All upstream attempts failed")
+
+
 
 
 def generate_speech(text, voice, speed):
@@ -486,19 +528,17 @@ def speak():
 
         speed = max(MIN_SPEED, min(MAX_SPEED, speed))
 
-        # 1. Generate audio
-        print(f"[speak] generating: {text[:40]!r} voice={voice} speed={speed}")
+        # Generate (with silent retries)
+        print(f"[speak] generating: {text[:40]!r} voice={voice}")
         wav_bytes = generate_speech(text, voice, speed)
         print(f"[speak] generated {len(wav_bytes)} bytes")
 
-        # 2. Upload to Cloudinary FIRST (synchronous, blocking)
+        # Upload to Cloudinary
         audio_url = None
-        if device_id:
-            print(f"[speak] uploading to cloudinary...")
+        if device_id and _cloudinary_ready:
             audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
-            print(f"[speak] cloudinary result: {audio_url}")
 
-        # 3. Save to history
+        # Save history
         if device_id and DATABASE_URL:
             try:
                 init_db()
@@ -507,11 +547,10 @@ def speak():
                     "VALUES (%s, %s, %s, %s, %s)",
                     (device_id, text[:800], voice, speed, audio_url),
                 )
-                print(f"[speak] history saved with audio_url={audio_url}")
+                print(f"[speak] history saved")
             except Exception as e:
                 print(f"[speak] history insert failed: {e}")
 
-        # 4. Return WAV
         return send_file(
             io.BytesIO(wav_bytes),
             mimetype="audio/wav",
@@ -519,12 +558,6 @@ def speak():
             download_name=f"{voice}.wav",
         )
 
-    except requests.Timeout:
-        return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
-    except TimeoutError:
-        return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
-    except requests.HTTPError as e:
-        return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
     except Exception as e:
         import traceback
         traceback.print_exc()
