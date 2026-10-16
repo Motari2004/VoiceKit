@@ -425,31 +425,24 @@ def speak():
 
         speed = max(MIN_SPEED, min(MAX_SPEED, speed))
 
+        # 1. Generate the audio (blocking — user waits for this)
         wav_bytes = generate_speech(text, voice, speed)
 
-        # Upload to Cloudinary + save history (best effort)
-        if device_id and DATABASE_URL:
-            try:
-                init_db()
-                audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
-                with get_db() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "INSERT INTO history (device_id, text, voice, speed, audio_url) "
-                            "VALUES (%s, %s, %s, %s, %s)",
-                            (device_id, text[:800], voice, speed, audio_url),
-                        )
-                    conn.commit()
-            except Exception as e:
-                print(f"[db] history insert failed: {e}")
+        # 2. Kick off upload + history save in the background
+        if device_id:
+            threading.Thread(
+                target=_background_save,
+                args=(wav_bytes, voice, device_id, text, speed),
+                daemon=True,
+            ).start()
 
-        response = send_file(
+        # 3. Return the WAV to the user immediately
+        return send_file(
             io.BytesIO(wav_bytes),
             mimetype="audio/wav",
             as_attachment=False,
             download_name=f"{voice}.wav",
         )
-        return response
 
     except requests.Timeout:
         return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
@@ -459,6 +452,28 @@ def speak():
         return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
+
+
+def _background_save(wav_bytes, voice, device_id, text, speed):
+    """Upload to Cloudinary + save history. Runs after the response."""
+    audio_url = None
+    try:
+        if _cloudinary_ready:
+            audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
+    except Exception as e:
+        print(f"[cloudinary] background upload failed: {e}")
+
+    try:
+        if DATABASE_URL:
+            init_db()
+            db_execute(
+                "INSERT INTO history (device_id, text, voice, speed, audio_url) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                (device_id, text[:800], voice, speed, audio_url),
+            )
+            print(f"[history] saved (audio_url={audio_url})")
+    except Exception as e:
+        print(f"[db] history insert failed: {e}")
 
 
 

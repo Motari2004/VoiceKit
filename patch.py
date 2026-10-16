@@ -1,8 +1,9 @@
 """
-VoiceKit — Cloudinary Upload (async, after response)
-- WAV is sent to the user immediately
-- Cloudinary upload + DB history save happens in a background thread
-- User sees audio in ~2.5s; Cloudinary catches up in the background
+Fix: the ALTER TABLE migration was inserted as a Python comment
+inside the SQL triple-quoted string. Postgres tried to parse the
+comment as SQL and failed, so init_db() crashes every time.
+
+This patch moves the migration to proper Python code OUTSIDE the SQL string.
 """
 
 import os
@@ -10,7 +11,7 @@ import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP  = os.path.join(BASE, "app.py")
+APP = os.path.join(BASE, "app.py")
 
 
 def backup(path):
@@ -19,80 +20,70 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-NEW_SPEAK = '''@app.route("/speak", methods=["POST", "OPTIONS"])
-def speak():
-    if request.method == "OPTIONS":
-        return ("", 204)
+# ============================================================
+# Clean init_db — migration OUTSIDE the SQL string
+# ============================================================
+NEW_INIT_DB = '''def init_db():
+    global _db_initialized
+    if _db_initialized:
+        return
+    with _db_lock:
+        if _db_initialized:
+            return
+        if not DATABASE_URL:
+            print("[db] DATABASE_URL not set — persistence disabled")
+            _db_initialized = True
+            return
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    # ---------- favorites ----------
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS favorites (
+                            device_id  TEXT NOT NULL,
+                            voice_id   TEXT NOT NULL,
+                            created_at TIMESTAMPTZ DEFAULT NOW(),
+                            PRIMARY KEY (device_id, voice_id)
+                        );
+                    """)
 
-    try:
-        data  = request.get_json() or {}
-        text  = (data.get("text") or "").strip()
-        voice = (data.get("voice") or "am_adam").strip()
-        speed = float(data.get("speed", 1.0))
-        device_id = (data.get("device_id") or "").strip()
+                    # ---------- history ----------
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS history (
+                            id         SERIAL PRIMARY KEY,
+                            device_id  TEXT NOT NULL,
+                            text       TEXT NOT NULL,
+                            voice      TEXT NOT NULL,
+                            speed      REAL NOT NULL,
+                            audio_url  TEXT,
+                            created_at TIMESTAMPTZ DEFAULT NOW()
+                        );
+                    """)
 
-        if not text:
-            return jsonify({"error": "Missing 'text'"}), 400
-        if len(text) > MAX_TEXT_LENGTH:
-            return jsonify({"error": f"Text too long (max {MAX_TEXT_LENGTH})"}), 400
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_history_device
+                        ON history (device_id, created_at DESC);
+                    """)
 
-        speed = max(MIN_SPEED, min(MAX_SPEED, speed))
+                    # ---------- migration: add audio_url if missing ----------
+                    # Safe for existing databases created before this column existed.
+                    cur.execute("""
+                        ALTER TABLE history
+                        ADD COLUMN IF NOT EXISTS audio_url TEXT;
+                    """)
 
-        # 1. Generate the audio (blocking — user waits for this)
-        wav_bytes = generate_speech(text, voice, speed)
-
-        # 2. Kick off upload + history save in the background
-        if device_id:
-            threading.Thread(
-                target=_background_save,
-                args=(wav_bytes, voice, device_id, text, speed),
-                daemon=True,
-            ).start()
-
-        # 3. Return the WAV to the user immediately
-        return send_file(
-            io.BytesIO(wav_bytes),
-            mimetype="audio/wav",
-            as_attachment=False,
-            download_name=f"{voice}.wav",
-        )
-
-    except requests.Timeout:
-        return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
-    except TimeoutError:
-        return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
-    except requests.HTTPError as e:
-        return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
-    except Exception as e:
-        return jsonify({"error": str(e)[:250]}), 500
-
-
-def _background_save(wav_bytes, voice, device_id, text, speed):
-    """Upload to Cloudinary + save history. Runs after the response."""
-    audio_url = None
-    try:
-        if _cloudinary_ready:
-            audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
-    except Exception as e:
-        print(f"[cloudinary] background upload failed: {e}")
-
-    try:
-        if DATABASE_URL:
-            init_db()
-            db_execute(
-                "INSERT INTO history (device_id, text, voice, speed, audio_url) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (device_id, text[:800], voice, speed, audio_url),
-            )
-            print(f"[history] saved (audio_url={audio_url})")
-    except Exception as e:
-        print(f"[db] history insert failed: {e}")
+                conn.commit()
+            print("[db] Tables ready")
+        except Exception as e:
+            print(f"[db] init failed: {e}")
+        finally:
+            _db_initialized = True
 '''
 
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Cloudinary Upload (after response)")
+    print(" VoiceKit — Migration Fix")
     print("=" * 60)
 
     if not os.path.exists(APP):
@@ -105,16 +96,27 @@ def patch():
         src = f.read()
 
     original = src
-    changes = []
 
-    speak_pattern = re.compile(
-        r'@app\.route\("/speak", methods=\["POST", "OPTIONS"\]\)\s*\ndef speak\(\):.*?(?=\n# ---------- FAVORITES|\n# =+\s*\n# FAVORITES)',
+    # Match the entire init_db function
+    pattern = re.compile(
+        r'def init_db\(\):.*?(?=\n\ndef |\n\n# =|\Z)',
         re.DOTALL
     )
 
-    if speak_pattern.search(src):
-        src = speak_pattern.sub(NEW_SPEAK + "\n\n", src, count=1)
-        changes.append("/speak (async save)")
+    match = pattern.search(src)
+    if not match:
+        print("  ERROR: could not find init_db() function")
+        return
+
+    src = src[:match.start()] + NEW_INIT_DB + src[match.end():]
+
+    # Also clean any leftover broken comment lines
+    src = re.sub(
+        r'^\s*#\s*Add column if it doesn\'t exist.*$',
+        '',
+        src,
+        flags=re.MULTILINE
+    )
 
     if src == original:
         print("  No changes made.")
@@ -123,28 +125,29 @@ def patch():
     with open(APP, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print(f"  [OK] Applied: {', '.join(changes)}")
+    print("  [OK] init_db() rewritten — migration is now proper Python")
     print()
     print("=" * 60)
     print(" DONE")
     print("=" * 60)
     print()
-    print(" New flow:")
-    print("   1. User clicks Generate")
-    print("   2. Server generates WAV (~2.5s)")
-    print("   3. WAV is sent to user immediately")
-    print("   4. Background thread uploads to Cloudinary")
-    print("   5. Background thread saves history row")
+    print(" What was wrong:")
+    print("   The ALTER TABLE migration was pasted INSIDE the triple-quoted")
+    print("   SQL string as a Python comment (# Add column...). Postgres")
+    print("   tried to parse the comment as SQL and crashed.")
     print()
-    print(" The user sees no difference — the audio arrives the")
-    print(" moment it's ready. Cloudinary + history catch up in")
-    print(" the background (usually within 1-2 seconds after).")
+    print(" The fix:")
+    print("   init_db() now uses a proper Python-level `cur.execute()`")
+    print("   for the ALTER TABLE migration, outside any SQL string.")
     print()
     print(" Deploy:")
     print("   vercel --prod")
     print()
-    print(" After generating, wait ~3 seconds then check History.")
-    print(" Entries should have audio_url now.")
+    print(" After deploy, the first /history or /speak request will:")
+    print("   1. Create the tables (if missing)")
+    print("   2. Add the audio_url column (if missing)")
+    print("   3. Print '[db] Tables ready' to the logs")
+    print()
     print("=" * 60)
 
 
