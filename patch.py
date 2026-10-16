@@ -1,12 +1,12 @@
 """
-Voice Indicator Patch
-- Adds a "Currently using" voice display to the Generate view
-- Adds a "Change voice" button that jumps to the Voices view
-- Shows a small dot + name + id inline
+VoiceKit — Speak Button Redesign
+Replaces the full-width white button with a clean, compact action row.
+- Round play icon on the left
+- "Generate" text in the middle
+- Subtle, not shouting
 """
 
 import os
-import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -19,9 +19,142 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
+NEW_CSS = '''
+  /* ---------- ACTION ROW ---------- */
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .speak-btn {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 13px 20px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition: all 0.15s var(--ease);
+    height: 46px;
+  }
+
+  .speak-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  .speak-btn:active:not(:disabled) {
+    transform: scale(0.99);
+  }
+
+  .speak-btn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  .speak-btn .play-icon {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .speak-btn .play-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+  }
+
+  .speak-btn.primary {
+    background: #ffffff;
+    color: #0a0a0a;
+    border-color: #ffffff;
+  }
+
+  .speak-btn.primary:hover:not(:disabled) {
+    background: #e8e8e8;
+    border-color: #e8e8e8;
+  }
+
+  .speak-btn.primary:disabled {
+    background: #ffffff;
+    color: #0a0a0a;
+    opacity: 0.7;
+  }
+
+  /* Download button (icon-only) */
+  .download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-hi);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s var(--ease);
+    flex-shrink: 0;
+  }
+
+  .download-btn:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+
+  .download-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .download-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Spinner inside button */
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(10, 10, 10, 0.2);
+    border-top-color: #0a0a0a;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Audio player */
+  audio {
+    width: 100%;
+    margin-top: 12px;
+    display: none;
+    border-radius: var(--radius-sm);
+    filter: invert(0.9) hue-rotate(180deg);
+  }
+
+  audio.show { display: block; }
+'''
+
+
 def patch():
     print("=" * 60)
-    print(" Voice Indicator Patch")
+    print(" VoiceKit — Speak Button Redesign")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -36,168 +169,87 @@ def patch():
     original = src
     changes = []
 
-    # ---------- 1) Add CSS for the voice indicator ----------
-    new_css = '''
-  /* ---------- VOICE INDICATOR ---------- */
-  .voice-indicator {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    margin-bottom: 14px;
-  }
+    # ---------- 1) Replace the old speak-btn CSS ----------
+    # Find the old block from ".speak-btn {" to end of "}" for it
+    # Since there are several .speak-btn rules, remove them all and add new CSS.
 
-  .voice-indicator .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-    flex-shrink: 0;
-  }
+    # Simplest approach: inject the new CSS right before </style>
+    if '/* ---------- ACTION ROW ---------- */' not in src:
+        src = src.replace('</style>', NEW_CSS + '\n</style>', 1)
+        changes.append("action row CSS")
 
-  .voice-indicator .label {
-    font-size: 0.68rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
+    # ---------- 2) Replace the speak button HTML ----------
+    old_btn_pattern = '<button class="speak-btn" id="speakBtn">'
 
-  .voice-indicator .voice-name {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.01em;
-  }
+    if old_btn_pattern in src and 'action-row' not in src:
+        # Find the full button block
+        start = src.find(old_btn_pattern)
+        if start != -1:
+            # Find the closing </button>
+            end = src.find('</button>', start)
+            if end != -1:
+                end += len('</button>')
 
-  .voice-indicator .voice-id {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    color: var(--text-dim);
-    padding: 2px 6px;
-    background: var(--bg);
-    border-radius: 4px;
-  }
+                new_btn_html = '''<div class="action-row">
+        <button class="speak-btn primary" id="speakBtn">
+          <span class="play-icon" id="speakIcon">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span id="speakBtnContent">Generate</span>
+        </button>
+        <button class="download-btn" id="downloadBtn" title="Download WAV" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+      </div>'''
 
-  .voice-indicator .change-btn {
-    margin-left: auto;
-    padding: 5px 10px;
-    background: transparent;
-    border: 1px solid var(--border-hi);
-    border-radius: 6px;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 500;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-    flex-shrink: 0;
-  }
+                src = src[:start] + new_btn_html + src[end:]
+                changes.append("button HTML")
 
-  .voice-indicator .change-btn:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
+    # ---------- 3) Update the JS ----------
+    # Update speak() to use the new button content id
+    old_content = "speakBtnContent.innerHTML = '<span class=\"spinner\"></span> Generating...';"
+    new_content = '''speakBtnContent.textContent = 'Generating...';
+    document.getElementById('speakIcon').innerHTML = '<div class="spinner"></div>';'''
+
+    if old_content in src:
+        src = src.replace(old_content, new_content)
+        changes.append("loading state")
+
+    old_reset = "speakBtnContent.textContent = '🔊 Speak';"
+    new_reset = '''speakBtnContent.textContent = 'Generate';
+    document.getElementById('speakIcon').innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';'''
+
+    if old_reset in src:
+        src = src.replace(old_reset, new_reset)
+        changes.append("reset state")
+
+    # ---------- 4) Enable download button after generation ----------
+    # Insert after the "player.classList.add('show');"
+    download_wire = '''
+    // Enable download button
+    const dlBtn = document.getElementById('downloadBtn');
+    if (dlBtn) {
+      dlBtn.disabled = false;
+      dlBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `voicekit_${Date.now()}.wav`;
+        a.click();
+      };
+    }
 '''
-
-    if 'voice-indicator' not in src:
-        src = src.replace('</style>', new_css + '\n</style>', 1)
-        changes.append("indicator CSS")
-
-    # ---------- 2) Insert the indicator HTML into the Generate view ----------
-    # Insert after the card-header of the Text-to-speak card
-    marker = '<span class="card-hint" id="charCount">0 / 800</span>\n      </div>\n      <textarea id="text"'
-    replacement = '''<span class="card-hint" id="charCount">0 / 800</span>
-      </div>
-
-      <!-- Voice indicator -->
-      <div class="voice-indicator">
-        <span class="dot"></span>
-        <span class="label">Using</span>
-        <span class="voice-name" id="genVoiceName">Adam</span>
-        <span class="voice-id" id="genVoiceId">am_adam</span>
-        <button class="change-btn" id="changeVoiceBtn">Change →</button>
-      </div>
-
-      <textarea id="text"'''
-
-    if 'genVoiceName' not in src and marker in src:
-        src = src.replace(marker, replacement, 1)
-        changes.append("indicator HTML")
-    elif 'genVoiceName' in src:
-        changes.append("indicator already present")
-
-    # ---------- 3) Add JS to sync the indicator ----------
-    js_addition = '''
-// ============================================================
-// VOICE INDICATOR SYNC
-// ============================================================
-function updateVoiceIndicator() {
-  const nameEl = document.getElementById('genVoiceName');
-  const idEl   = document.getElementById('genVoiceId');
-  if (nameEl) nameEl.textContent = selectedVoiceName;
-  if (idEl)   idEl.textContent   = selectedVoiceId;
-}
-
-// "Change voice" button → jump to Voices view
-const changeVoiceBtn = document.getElementById('changeVoiceBtn');
-if (changeVoiceBtn) {
-  changeVoiceBtn.onclick = () => {
-    // Simulate clicking the Voices nav button
-    const voicesNavBtn = document.querySelector('.nav-btn[data-view="voices"]');
-    if (voicesNavBtn) voicesNavBtn.click();
-  };
-}
-'''
-
-    # Insert after the existing selectVoice function
-    anchor = "function selectVoice(id, name, chip) {"
-    if 'updateVoiceIndicator' not in src and anchor in src:
-        # Find the end of the selectVoice function
-        start = src.find(anchor)
-        # Find the matching closing brace
-        depth = 0
-        i = start
-        end = -1
-        while i < len(src):
-            if src[i] == '{':
-                depth += 1
-            elif src[i] == '}':
-                depth -= 1
-                if depth == 0:
-                    end = i + 1
-                    break
-            i += 1
-
-        if end > 0:
-            # Insert after the function
-            src = src[:end] + "\n" + js_addition + src[end:]
-            changes.append("indicator JS")
-
-    # ---------- 4) Call updateVoiceIndicator inside selectVoice ----------
-    # Find the line inside selectVoice that ends with chip.classList.add('selected');
-    old_line = "chip.classList.add('selected');\n}"
-    new_line = "chip.classList.add('selected');\n  updateVoiceIndicator();\n}"
-
-    if 'updateVoiceIndicator();' not in src.split('function selectVoice')[1][:600] if 'function selectVoice' in src else False:
-        # Try to insert inside selectVoice
-        if old_line in src:
-            src = src.replace(old_line, new_line, 1)
-            changes.append("selectVoice sync")
-
-    # ---------- 5) Also initialize on page load ----------
-    old_init = "loadVoices();\nsetStatus('Ready."
-    new_init = "loadVoices();\nupdateVoiceIndicator();\nsetStatus('Ready."
-
-    if 'updateVoiceIndicator();\nsetStatus' not in src and old_init in src:
-        src = src.replace(old_init, new_init, 1)
-        changes.append("init call")
+    marker = "player.classList.add('show');"
+    if marker in src and 'dlBtn.onclick' not in src:
+        # Insert after the first occurrence
+        idx = src.find(marker)
+        if idx != -1:
+            insert_at = idx + len(marker)
+            src = src[:insert_at] + download_wire + src[insert_at:]
+            changes.append("download wiring")
 
     if src == original:
         print("  No changes made.")
@@ -212,13 +264,16 @@ if (changeVoiceBtn) {
     print(" DONE")
     print("=" * 60)
     print()
-    print(" What's new:")
-    print("   • Voice indicator appears in the Generate view")
-    print("   • Shows: dot + 'USING' + voice name + voice id")
-    print("   • 'Change →' button jumps to the Voices view")
-    print("   • Indicator updates automatically when you pick a voice")
+    print(" What changed:")
+    print("   • Speak button: solid white, 'Generate' label, play icon")
+    print("   • No shimmer, no glow, no gradient")
+    print("   • Hover: subtle grey shift")
+    print("   • Download button (icon-only) appears next to it")
+    print("   • Disabled until audio is generated")
+    print("   • Loading spinner replaces the play icon")
     print()
-    print(" Reload: Ctrl + Shift + R")
+    print(" Deploy:")
+    print("   vercel --prod")
     print(f" Backup: {os.path.relpath(HTML, BASE)}.bak")
     print("=" * 60)
 
