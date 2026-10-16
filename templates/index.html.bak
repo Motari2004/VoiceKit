@@ -332,6 +332,256 @@
     50% { opacity: 0.5; }
   }
   .pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ============================================================
+   VOICE PICKER
+   ============================================================ */
+.voice-picker {
+  margin-top: 6px;
+}
+
+.voice-search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.voice-search {
+  flex: 1;
+  position: relative;
+}
+
+.voice-search input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.voice-search input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(34,211,238,0.1);
+}
+.voice-search::before {
+  content: "🔍";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.voice-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.filter-chip {
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: #bbb;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+.filter-chip:hover {
+  background: rgba(34,211,238,0.1);
+  border-color: rgba(34,211,238,0.3);
+  color: #ddd;
+}
+.filter-chip.active {
+  background: rgba(34,211,238,0.15);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.voice-list {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 12px;
+}
+.voice-list::-webkit-scrollbar { width: 6px; }
+.voice-list::-webkit-scrollbar-track { background: transparent; }
+.voice-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+.voice-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.voice-lang {
+  margin-bottom: 16px;
+}
+.voice-lang.hidden { display: none; }
+
+.voice-lang-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(34,211,238,0.15);
+}
+.voice-lang-header::before {
+  content: "";
+  width: 3px;
+  height: 12px;
+  background: var(--cyan);
+  border-radius: 2px;
+}
+
+.voice-gender-label {
+  font-size: 0.62rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 10px 0 6px;
+  font-weight: 600;
+}
+
+.voice-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+}
+
+.voice-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.voice-chip.hidden { display: none; }
+.voice-chip:hover {
+  background: rgba(34,211,238,0.08);
+  border-color: rgba(34,211,238,0.3);
+  transform: translateY(-1px);
+}
+.voice-chip.selected {
+  background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15));
+  border-color: var(--cyan);
+  box-shadow: 0 0 12px rgba(34,211,238,0.15);
+}
+.voice-chip.selected::before {
+  content: "✓";
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.6rem;
+  color: var(--cyan);
+  font-weight: 700;
+}
+
+.chip-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.chip-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ddd;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.voice-chip.selected .chip-name { color: #fff; }
+
+.chip-desc {
+  font-size: 0.65rem;
+  color: #777;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.chip-play {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(34,211,238,0.12);
+  border: 1px solid rgba(34,211,238,0.2);
+  color: var(--cyan);
+  cursor: pointer;
+  font-size: 0.55rem;
+  padding: 0;
+  transition: all 0.15s;
+}
+.chip-play:hover {
+  background: rgba(34,211,238,0.3);
+  transform: scale(1.1);
+}
+.chip-play.playing {
+  background: var(--cyan);
+  color: #000;
+  animation: pulse-chip 1s infinite;
+}
+@keyframes pulse-chip {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(34,211,238,0); }
+}
+
+.voice-selected-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(139,92,246,0.1));
+  border: 1px solid rgba(34,211,238,0.3);
+  border-radius: 10px;
+  font-size: 0.82rem;
+}
+.voice-selected-bar .label { color: #999; font-size: 0.72rem; }
+.voice-selected-bar .name { color: #fff; font-weight: 700; font-size: 0.9rem; }
+.voice-selected-bar .id {
+  color: var(--cyan);
+  font-family: 'Consolas', monospace;
+  font-size: 0.72rem;
+}
+
+.voice-count {
+  font-size: 0.7rem;
+  color: #666;
+  text-align: right;
+  margin-top: -8px;
+  margin-bottom: 8px;
+}
+
 </style>
 </head>
 <body>
@@ -358,38 +608,243 @@
     <div class="row">
       <div>
         <label>Voice</label>
-        <select id="voice">
-          <optgroup label="American Male">
-            <option value="am_adam">Adam — Deep, broadcaster</option>
-            <option value="am_michael">Michael — Warm, natural</option>
-            <option value="am_onyx">Onyx — Rich, resonant</option>
-            <option value="am_puck">Puck — Playful</option>
-            <option value="am_echo">Echo — Bright</option>
-            <option value="am_eric">Eric — Clear</option>
-            <option value="am_fenrir">Fenrir — Deep</option>
-            <option value="am_liam">Liam — Warm</option>
-            <option value="am_santa">Santa — Gravelly</option>
-          </optgroup>
-          <optgroup label="British Male">
-            <option value="bm_george">George — Warm</option>
-            <option value="bm_lewis">Lewis — Deep</option>
-            <option value="bm_daniel">Daniel — Clear</option>
-            <option value="bm_fable">Fable — Storyteller</option>
-          </optgroup>
-          <optgroup label="American Female">
-            <option value="af_heart">Heart — Warm</option>
-            <option value="af_bella">Bella — Bright</option>
-            <option value="af_nicole">Nicole — Soft</option>
-            <option value="af_sarah">Sarah — Clear</option>
-            <option value="af_sky">Sky — Youthful</option>
-            <option value="af_nova">Nova — Crisp</option>
-          </optgroup>
-          <optgroup label="British Female">
-            <option value="bf_emma">Emma — Warm</option>
-            <option value="bf_alice">Alice — Clear</option>
-            <option value="bf_lily">Lily — Youthful</option>
-          </optgroup>
-        </select>
+        <div style="display:none;"><select id="voice"><option value="am_adam" selected>am_adam</option></select></div>
+<div class="voice-picker">
+  <div class="voice-search-row">
+    <div class="voice-search">
+      <input type="text" id="voiceSearch" placeholder="Search voices by name or ID..." autocomplete="off">
+    </div>
+  </div>
+  <div class="voice-filter" id="voiceFilter">
+    <button class="filter-chip active" data-filter="all">All</button>
+    <button class="filter-chip" data-filter="male">Male</button>
+    <button class="filter-chip" data-filter="female">Female</button>
+    <button class="filter-chip" data-filter="American English">American</button>
+    <button class="filter-chip" data-filter="British English">British</button>
+  </div>
+  <div class="voice-count" id="voiceCount"></div>
+  <div class="voice-list" id="voiceList">
+    <div class="voice-lang" data-lang="American English">
+      <div class="voice-lang-header">American English</div>
+      <div class="voice-gender-label">Male</div>
+      <div class="voice-chips">
+        <div class="voice-chip selected" data-id="am_adam" data-name="adam" data-lang="American English" data-gender="male" title="Adam — Deep, broadcaster">
+          <div class="chip-content">
+            <span class="chip-name">Adam</span>
+            <span class="chip-desc">Deep, broadcaster</span>
+          </div>
+          <button class="chip-play" data-id="am_adam" title="Preview Adam">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_michael" data-name="michael" data-lang="American English" data-gender="male" title="Michael — Warm, natural">
+          <div class="chip-content">
+            <span class="chip-name">Michael</span>
+            <span class="chip-desc">Warm, natural</span>
+          </div>
+          <button class="chip-play" data-id="am_michael" title="Preview Michael">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_onyx" data-name="onyx" data-lang="American English" data-gender="male" title="Onyx — Rich, resonant">
+          <div class="chip-content">
+            <span class="chip-name">Onyx</span>
+            <span class="chip-desc">Rich, resonant</span>
+          </div>
+          <button class="chip-play" data-id="am_onyx" title="Preview Onyx">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_puck" data-name="puck" data-lang="American English" data-gender="male" title="Puck — Playful">
+          <div class="chip-content">
+            <span class="chip-name">Puck</span>
+            <span class="chip-desc">Playful</span>
+          </div>
+          <button class="chip-play" data-id="am_puck" title="Preview Puck">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_echo" data-name="echo" data-lang="American English" data-gender="male" title="Echo — Bright">
+          <div class="chip-content">
+            <span class="chip-name">Echo</span>
+            <span class="chip-desc">Bright</span>
+          </div>
+          <button class="chip-play" data-id="am_echo" title="Preview Echo">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_eric" data-name="eric" data-lang="American English" data-gender="male" title="Eric — Clear">
+          <div class="chip-content">
+            <span class="chip-name">Eric</span>
+            <span class="chip-desc">Clear</span>
+          </div>
+          <button class="chip-play" data-id="am_eric" title="Preview Eric">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_fenrir" data-name="fenrir" data-lang="American English" data-gender="male" title="Fenrir — Deep, cinematic">
+          <div class="chip-content">
+            <span class="chip-name">Fenrir</span>
+            <span class="chip-desc">Deep, cinematic</span>
+          </div>
+          <button class="chip-play" data-id="am_fenrir" title="Preview Fenrir">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_liam" data-name="liam" data-lang="American English" data-gender="male" title="Liam — Warm, friendly">
+          <div class="chip-content">
+            <span class="chip-name">Liam</span>
+            <span class="chip-desc">Warm, friendly</span>
+          </div>
+          <button class="chip-play" data-id="am_liam" title="Preview Liam">▶</button>
+        </div>
+        <div class="voice-chip" data-id="am_santa" data-name="santa" data-lang="American English" data-gender="male" title="Santa — Gravelly, storyteller">
+          <div class="chip-content">
+            <span class="chip-name">Santa</span>
+            <span class="chip-desc">Gravelly, storyteller</span>
+          </div>
+          <button class="chip-play" data-id="am_santa" title="Preview Santa">▶</button>
+        </div>
+      </div>
+      <div class="voice-gender-label">Female</div>
+      <div class="voice-chips">
+        <div class="voice-chip" data-id="af_heart" data-name="heart" data-lang="American English" data-gender="female" title="Heart — Warm, emotive">
+          <div class="chip-content">
+            <span class="chip-name">Heart</span>
+            <span class="chip-desc">Warm, emotive</span>
+          </div>
+          <button class="chip-play" data-id="af_heart" title="Preview Heart">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_bella" data-name="bella" data-lang="American English" data-gender="female" title="Bella — Bright, clear">
+          <div class="chip-content">
+            <span class="chip-name">Bella</span>
+            <span class="chip-desc">Bright, clear</span>
+          </div>
+          <button class="chip-play" data-id="af_bella" title="Preview Bella">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_nicole" data-name="nicole" data-lang="American English" data-gender="female" title="Nicole — Soft, calm">
+          <div class="chip-content">
+            <span class="chip-name">Nicole</span>
+            <span class="chip-desc">Soft, calm</span>
+          </div>
+          <button class="chip-play" data-id="af_nicole" title="Preview Nicole">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_sarah" data-name="sarah" data-lang="American English" data-gender="female" title="Sarah — Clear, neutral">
+          <div class="chip-content">
+            <span class="chip-name">Sarah</span>
+            <span class="chip-desc">Clear, neutral</span>
+          </div>
+          <button class="chip-play" data-id="af_sarah" title="Preview Sarah">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_sky" data-name="sky" data-lang="American English" data-gender="female" title="Sky — Youthful, light">
+          <div class="chip-content">
+            <span class="chip-name">Sky</span>
+            <span class="chip-desc">Youthful, light</span>
+          </div>
+          <button class="chip-play" data-id="af_sky" title="Preview Sky">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_nova" data-name="nova" data-lang="American English" data-gender="female" title="Nova — Crisp, modern">
+          <div class="chip-content">
+            <span class="chip-name">Nova</span>
+            <span class="chip-desc">Crisp, modern</span>
+          </div>
+          <button class="chip-play" data-id="af_nova" title="Preview Nova">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_river" data-name="river" data-lang="American English" data-gender="female" title="River — Calm, flowing">
+          <div class="chip-content">
+            <span class="chip-name">River</span>
+            <span class="chip-desc">Calm, flowing</span>
+          </div>
+          <button class="chip-play" data-id="af_river" title="Preview River">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_jessica" data-name="jessica" data-lang="American English" data-gender="female" title="Jessica — Confident, sharp">
+          <div class="chip-content">
+            <span class="chip-name">Jessica</span>
+            <span class="chip-desc">Confident, sharp</span>
+          </div>
+          <button class="chip-play" data-id="af_jessica" title="Preview Jessica">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_kore" data-name="kore" data-lang="American English" data-gender="female" title="Kore — Warm, poetic">
+          <div class="chip-content">
+            <span class="chip-name">Kore</span>
+            <span class="chip-desc">Warm, poetic</span>
+          </div>
+          <button class="chip-play" data-id="af_kore" title="Preview Kore">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_aoede" data-name="aoede" data-lang="American English" data-gender="female" title="Aoede — Melodic, lyrical">
+          <div class="chip-content">
+            <span class="chip-name">Aoede</span>
+            <span class="chip-desc">Melodic, lyrical</span>
+          </div>
+          <button class="chip-play" data-id="af_aoede" title="Preview Aoede">▶</button>
+        </div>
+        <div class="voice-chip" data-id="af_alloy" data-name="alloy" data-lang="American English" data-gender="female" title="Alloy — Bright, energetic">
+          <div class="chip-content">
+            <span class="chip-name">Alloy</span>
+            <span class="chip-desc">Bright, energetic</span>
+          </div>
+          <button class="chip-play" data-id="af_alloy" title="Preview Alloy">▶</button>
+        </div>
+      </div>
+    </div>
+    <div class="voice-lang" data-lang="British English">
+      <div class="voice-lang-header">British English</div>
+      <div class="voice-gender-label">Male</div>
+      <div class="voice-chips">
+        <div class="voice-chip" data-id="bm_george" data-name="george" data-lang="British English" data-gender="male" title="George — Warm, refined">
+          <div class="chip-content">
+            <span class="chip-name">George</span>
+            <span class="chip-desc">Warm, refined</span>
+          </div>
+          <button class="chip-play" data-id="bm_george" title="Preview George">▶</button>
+        </div>
+        <div class="voice-chip" data-id="bm_lewis" data-name="lewis" data-lang="British English" data-gender="male" title="Lewis — Deep, authoritative">
+          <div class="chip-content">
+            <span class="chip-name">Lewis</span>
+            <span class="chip-desc">Deep, authoritative</span>
+          </div>
+          <button class="chip-play" data-id="bm_lewis" title="Preview Lewis">▶</button>
+        </div>
+        <div class="voice-chip" data-id="bm_daniel" data-name="daniel" data-lang="British English" data-gender="male" title="Daniel — Clear, articulate">
+          <div class="chip-content">
+            <span class="chip-name">Daniel</span>
+            <span class="chip-desc">Clear, articulate</span>
+          </div>
+          <button class="chip-play" data-id="bm_daniel" title="Preview Daniel">▶</button>
+        </div>
+        <div class="voice-chip" data-id="bm_fable" data-name="fable" data-lang="British English" data-gender="male" title="Fable — Storyteller, warm">
+          <div class="chip-content">
+            <span class="chip-name">Fable</span>
+            <span class="chip-desc">Storyteller, warm</span>
+          </div>
+          <button class="chip-play" data-id="bm_fable" title="Preview Fable">▶</button>
+        </div>
+      </div>
+      <div class="voice-gender-label">Female</div>
+      <div class="voice-chips">
+        <div class="voice-chip" data-id="bf_emma" data-name="emma" data-lang="British English" data-gender="female" title="Emma — Warm, elegant">
+          <div class="chip-content">
+            <span class="chip-name">Emma</span>
+            <span class="chip-desc">Warm, elegant</span>
+          </div>
+          <button class="chip-play" data-id="bf_emma" title="Preview Emma">▶</button>
+        </div>
+        <div class="voice-chip" data-id="bf_alice" data-name="alice" data-lang="British English" data-gender="female" title="Alice — Clear, bright">
+          <div class="chip-content">
+            <span class="chip-name">Alice</span>
+            <span class="chip-desc">Clear, bright</span>
+          </div>
+          <button class="chip-play" data-id="bf_alice" title="Preview Alice">▶</button>
+        </div>
+        <div class="voice-chip" data-id="bf_isabella" data-name="isabella" data-lang="British English" data-gender="female" title="Isabella — Refined, smooth">
+          <div class="chip-content">
+            <span class="chip-name">Isabella</span>
+            <span class="chip-desc">Refined, smooth</span>
+          </div>
+          <button class="chip-play" data-id="bf_isabella" title="Preview Isabella">▶</button>
+        </div>
+        <div class="voice-chip" data-id="bf_lily" data-name="lily" data-lang="British English" data-gender="female" title="Lily — Youthful, gentle">
+          <div class="chip-content">
+            <span class="chip-name">Lily</span>
+            <span class="chip-desc">Youthful, gentle</span>
+          </div>
+          <button class="chip-play" data-id="bf_lily" title="Preview Lily">▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="voice-selected-bar" id="voiceSelectedBar">
+    <span class="label">Selected</span>
+    <span class="name" id="selectedName">Adam</span>
+    <span class="id" id="selectedId">am_adam</span>
+  </div>
+</div>
       </div>
       <div>
         <label>Speed</label>
@@ -622,6 +1077,152 @@ textEl.addEventListener('keydown', (e) => {
 speakBtn.onclick = speak;
 
 setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
+
+// ============================================================
+// VOICE PICKER
+// ============================================================
+let selectedVoiceId = "am_adam";
+let currentFilter = "all";
+let currentSearch = "";
+
+const voiceList = document.getElementById('voiceList');
+const voiceSearch = document.getElementById('voiceSearch');
+const voiceFilter = document.getElementById('voiceFilter');
+const voiceCount = document.getElementById('voiceCount');
+const selectedNameEl = document.getElementById('selectedName');
+const selectedIdEl = document.getElementById('selectedId');
+
+function updatePickerVisibility() {
+  const chips = document.querySelectorAll('.voice-chip');
+  let visible = 0;
+
+  chips.forEach(chip => {
+    const id     = chip.dataset.id.toLowerCase();
+    const name   = chip.dataset.name;
+    const lang   = chip.dataset.lang;
+    const gender = chip.dataset.gender;
+
+    const matchesSearch = !currentSearch
+      || id.includes(currentSearch)
+      || name.includes(currentSearch);
+
+    let matchesFilter = true;
+    if (currentFilter === 'male')   matchesFilter = gender === 'male';
+    else if (currentFilter === 'female') matchesFilter = gender === 'female';
+    else if (currentFilter !== 'all') matchesFilter = lang === currentFilter;
+
+    const show = matchesSearch && matchesFilter;
+    chip.classList.toggle('hidden', !show);
+    if (show) visible++;
+  });
+
+  // Hide empty language blocks
+  document.querySelectorAll('.voice-lang').forEach(block => {
+    const anyVisible = block.querySelectorAll('.voice-chip:not(.hidden)').length;
+    block.classList.toggle('hidden', anyVisible === 0);
+  });
+
+  // Update count
+  if (voiceCount) {
+    voiceCount.textContent = visible + ' voice' + (visible === 1 ? '' : 's');
+  }
+}
+
+// ---------- Chip click — select ----------
+document.addEventListener('click', (e) => {
+  const playBtn = e.target.closest('.chip-play');
+  if (playBtn) {
+    e.stopPropagation();
+    previewVoice(playBtn.dataset.id, playBtn);
+    return;
+  }
+
+  const chip = e.target.closest('.voice-chip');
+  if (!chip) return;
+
+  document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
+  chip.classList.add('selected');
+
+  selectedVoiceId = chip.dataset.id;
+  const name = chip.querySelector('.chip-name').textContent;
+
+  // Update selected bar
+  if (selectedNameEl) selectedNameEl.textContent = name;
+  if (selectedIdEl)   selectedIdEl.textContent = selectedVoiceId;
+
+  // Sync the hidden <select> so speak() works
+  const hiddenSelect = document.getElementById('voice');
+  if (hiddenSelect) hiddenSelect.value = selectedVoiceId;
+});
+
+// ---------- Search ----------
+if (voiceSearch) {
+  voiceSearch.addEventListener('input', (e) => {
+    currentSearch = e.target.value.toLowerCase().trim();
+    updatePickerVisibility();
+  });
+}
+
+// ---------- Filter chips ----------
+if (voiceFilter) {
+  voiceFilter.addEventListener('click', (e) => {
+    const chip = e.target.closest('.filter-chip');
+    if (!chip) return;
+
+    voiceFilter.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentFilter = chip.dataset.filter;
+    updatePickerVisibility();
+  });
+}
+
+// ---------- Preview voice ----------
+async function previewVoice(voiceId, btn) {
+  if (btn) {
+    btn.textContent = '⏳';
+    btn.classList.add('playing');
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: "Listen closely. You can barely tell this is not me talking.",
+        voice: voiceId,
+        speed: 1.0
+      })
+    });
+
+    if (!res.ok) throw new Error('Preview failed');
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play();
+
+    if (btn) {
+      btn.textContent = '■';
+      audio.onended = () => {
+        btn.textContent = '▶';
+        btn.classList.remove('playing');
+      };
+    }
+  } catch (err) {
+    console.error(err);
+    if (btn) {
+      btn.textContent = '✗';
+      setTimeout(() => {
+        btn.textContent = '▶';
+        btn.classList.remove('playing');
+      }, 1500);
+    }
+  }
+}
+
+// ---------- Initialize ----------
+updatePickerVisibility();
+
 </script>
 </body>
 </html>

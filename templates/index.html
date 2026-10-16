@@ -982,13 +982,13 @@ async function speak() {
     return;
   }
 
-  const voice = voiceEl.value;
+  const voice = selectedVoiceId || voiceEl.value || 'am_adam';
   const speed = parseFloat(speedEl.value);
 
   speakBtn.disabled = true;
-  speakBtn.textContent = '⏳ Generating...';
+  speakBtn.textContent = 'Generating...';
   speakBtn.classList.add('pulse');
-  setStatus('Sending to VoiceKit...', 'busy');
+  setStatus('Sending to VoiceKit API...', 'busy');
 
   const t0 = performance.now();
 
@@ -1012,7 +1012,7 @@ async function speak() {
     await player.play().catch(() => {});
 
     const ms = Math.round(performance.now() - t0);
-    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
+    setStatus(`Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
 
     history.unshift({ text, voice, speed, blobUrl, ts: Date.now(), ms, size: blob.size });
     if (history.length > 20) history.pop();
