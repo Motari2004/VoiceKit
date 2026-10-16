@@ -2006,6 +2006,14 @@
     }
   }
 
+
+  /* ---------- MOBILE: PUSH SIDEBAR CONTENT DOWN ---------- */
+  @media (max-width: 900px) {
+    .sidebar {
+      padding-top: 76px;
+    }
+  }
+
 </style>
   <link rel="apple-touch-icon" href="/static/mic.png">
 </head>
