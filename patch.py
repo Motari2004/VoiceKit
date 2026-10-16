@@ -1,7 +1,5 @@
 """
-Fix: restore the sidebar footer text with version v1.2
-- Remove any misplaced v1.2 next to the brand name
-- Update the sidebar footer to say "VoiceKit v1.2"
+Replace the browser tab favicon with the mic.png image.
 """
 
 import os
@@ -20,7 +18,7 @@ def backup(path):
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Fix Version Placement")
+    print(" VoiceKit — Favicon Update")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -35,36 +33,32 @@ def patch():
     original = src
     changes = []
 
-    # 1) Remove the wrongly-placed v1.2 next to the brand name
-    src = re.sub(
-        r'\s*<span class="brand-version">[^<]*</span>',
-        '',
-        src
-    )
-
-    # 2) Fix the sidebar footer to say "VoiceKit v1.2"
-    footer_pattern = re.compile(
-        r'<div class="sidebar-footer">.*?</div>',
+    # Match any existing <link rel="icon" ...>
+    favicon_pattern = re.compile(
+        r'<link rel="icon"[^>]*>',
         re.DOTALL
     )
 
-    new_footer = '''<div class="sidebar-footer">
-    <span style="opacity: 0.6;">VoiceKit v1.2</span>
-  </div>'''
+    new_favicon = (
+        '<link rel="icon" type="image/png" href="/static/mic.png">'
+    )
 
-    if footer_pattern.search(src):
-        src = footer_pattern.sub(new_footer, src, count=1)
-        changes.append("sidebar footer")
+    if favicon_pattern.search(src):
+        src = favicon_pattern.sub(new_favicon, src, count=1)
+        changes.append("favicon link")
     else:
-        # Insert before </aside>
-        aside_close = "</aside>"
-        if aside_close in src:
-            src = src.replace(
-                aside_close,
-                new_footer + "\n" + aside_close,
-                1
-            )
-            changes.append("sidebar footer (inserted)")
+        # No favicon — add one before </head>
+        src = src.replace('</head>', '  ' + new_favicon + '\n</head>', 1)
+        changes.append("favicon inserted")
+
+    # Also add apple-touch-icon for mobile home screens
+    if 'apple-touch-icon' not in src:
+        src = src.replace(
+            '</head>',
+            '  <link rel="apple-touch-icon" href="/static/mic.png">\n</head>',
+            1
+        )
+        changes.append("apple-touch-icon")
 
     if src == original:
         print("  No changes made.")
@@ -76,12 +70,15 @@ def patch():
     print(f"  [OK] Applied: {', '.join(changes)}")
     print()
     print(" Result:")
-    print("   • Removed the stray 'v1.2' next to VoiceKit brand")
-    print("   • Sidebar footer now shows: 'VoiceKit v1.2'")
+    print("   • Browser tab favicon = mic.png")
+    print("   • Apple touch icon = mic.png (for iOS home screen)")
     print()
     print(" Deploy:")
     print("   vercel --prod")
-    print("   Or hard-refresh: Ctrl + Shift + R")
+    print()
+    print(" NOTE: Browsers cache favicons aggressively.")
+    print(" After deploy, do a HARD refresh: Ctrl + Shift + R")
+    print(" Or open in an incognito window to see the new icon.")
     print("=" * 60)
 
 
