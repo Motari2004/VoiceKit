@@ -1,10 +1,12 @@
 """
-VoiceKit — Sidebar Navigation Redesign
-Left nav with buttons, main content on the right.
-Single-page app feel with section switching.
+Voice Indicator Patch
+- Adds a "Currently using" voice display to the Generate view
+- Adds a "Change voice" button that jumps to the Voices view
+- Shows a small dot + name + id inline
 """
 
 import os
+import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -17,1660 +19,9 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-NEW_HTML = r'''<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VoiceKit — Natural Text to Speech</title>
-<meta name="description" content="Generate natural speech from text. 54 voices, 9 languages, free.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-<style>
-  :root {
-    --bg:          #08080a;
-    --bg-side:     #0c0c0f;
-    --bg-card:     #121216;
-    --bg-input:    #1a1a20;
-    --bg-hover:    #1c1c22;
-
-    --border:      rgba(255,255,255,0.06);
-    --border-hi:   rgba(255,255,255,0.12);
-
-    --text:        #f4f4f5;
-    --text-muted:  #8a8a93;
-    --text-dim:    #5a5a63;
-
-    --accent:      #7c3aed;
-    --accent-hi:   #a855f7;
-    --accent-soft: rgba(124, 58, 237, 0.12);
-
-    --success:     #22c55e;
-    --warning:     #eab308;
-    --danger:      #ef4444;
-
-    --radius-sm:   8px;
-    --radius-md:   10px;
-    --radius-lg:   14px;
-
-    --ease: cubic-bezier(0.32, 0.72, 0, 1);
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  html, body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    font-size: 15px;
-    line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  body {
-    min-height: 100vh;
-    display: flex;
-  }
-
-  ::selection { background: var(--accent); color: white; }
-
-  /* ============================================================
-     SIDEBAR
-     ============================================================ */
-  .sidebar {
-    width: 240px;
-    flex-shrink: 0;
-    height: 100vh;
-    background: var(--bg-side);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    padding: 20px 14px;
-    position: sticky;
-    top: 0;
-    overflow-y: auto;
-  }
-
-  .sidebar-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 10px 20px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .brand-mark {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-hi));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
-  }
-
-  .brand-text {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.15;
-  }
-
-  .brand-name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text);
-  }
-
-  .brand-version {
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    font-weight: 500;
-    letter-spacing: 0.04em;
-  }
-
-  .nav-section {
-    margin-bottom: 20px;
-  }
-
-  .nav-label {
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 600;
-    padding: 0 10px;
-    margin-bottom: 6px;
-  }
-
-  .nav-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 10px;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-    font-family: inherit;
-    font-size: 0.85rem;
-    font-weight: 500;
-    text-align: left;
-    cursor: pointer;
-    transition: all 0.12s var(--ease);
-    letter-spacing: -0.005em;
-  }
-
-  .nav-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text);
-  }
-
-  .nav-btn.active {
-    background: var(--accent-soft);
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .nav-btn.active .nav-icon {
-    color: var(--accent-hi);
-  }
-
-  .nav-icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    color: var(--text-dim);
-    transition: color 0.12s var(--ease);
-  }
-
-  .nav-btn:hover .nav-icon { color: var(--text-muted); }
-
-  .nav-badge {
-    margin-left: auto;
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    background: var(--bg-input);
-    border-radius: 4px;
-    color: var(--text-dim);
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .nav-btn.active .nav-badge {
-    background: var(--accent);
-    color: white;
-  }
-
-  .sidebar-footer {
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    line-height: 1.6;
-  }
-
-  .sidebar-footer a {
-    color: var(--text-muted);
-    text-decoration: none;
-    transition: color 0.12s;
-    display: block;
-    padding: 4px 10px;
-    border-radius: 6px;
-  }
-
-  .sidebar-footer a:hover {
-    color: var(--text);
-    background: var(--bg-hover);
-  }
-
-  /* ============================================================
-     MAIN CONTENT
-     ============================================================ */
-  .main {
-    flex: 1;
-    min-width: 0;
-    padding: 40px 48px 80px;
-    overflow-x: hidden;
-  }
-
-  .view { display: none; }
-  .view.active { display: block; animation: fadeUp 0.3s var(--ease) both; }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .view-header {
-    margin-bottom: 32px;
-  }
-
-  .view-title {
-    font-size: 1.65rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--text);
-    line-height: 1.15;
-  }
-
-  .view-subtitle {
-    font-size: 0.92rem;
-    color: var(--text-muted);
-    margin-top: 6px;
-    letter-spacing: -0.005em;
-  }
-
-  /* ============================================================
-     CARDS
-     ============================================================ */
-  .card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 24px;
-    margin-bottom: 18px;
-  }
-
-  .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-  }
-
-  .card-title {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  .card-hint {
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .card-hint.warn { color: var(--warning); }
-  .card-hint.over { color: var(--danger); }
-
-  /* ============================================================
-     TEXTAREA
-     ============================================================ */
-  textarea {
-    width: 100%;
-    min-height: 140px;
-    padding: 16px 18px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text);
-    font-size: 0.95rem;
-    font-family: inherit;
-    line-height: 1.6;
-    resize: vertical;
-    outline: none;
-    transition: all 0.15s var(--ease);
-  }
-
-  textarea::placeholder { color: var(--text-dim); }
-
-  textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-
-  .quick {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-  }
-
-  .quick button {
-    padding: 6px 12px;
-    background: transparent;
-    border: 1px solid var(--border-hi);
-    border-radius: 999px;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    font-family: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-  }
-
-  .quick button:hover {
-    background: var(--bg-input);
-    border-color: var(--accent);
-    color: var(--text);
-  }
-
-  /* ============================================================
-     SEARCH + FILTERS
-     ============================================================ */
-  .search-wrap {
-    position: relative;
-    margin-bottom: 12px;
-  }
-
-  .search-icon {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 15px;
-    height: 15px;
-    color: var(--text-dim);
-    pointer-events: none;
-  }
-
-  #voiceSearch {
-    width: 100%;
-    padding: 10px 16px 10px 40px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text);
-    font-size: 0.88rem;
-    font-family: inherit;
-    outline: none;
-    transition: all 0.15s var(--ease);
-  }
-
-  #voiceSearch::placeholder { color: var(--text-dim); }
-  #voiceSearch:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-
-  .filter-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    margin-bottom: 14px;
-  }
-
-  .filter-chip {
-    padding: 5px 11px;
-    background: transparent;
-    border: 1px solid var(--border-hi);
-    border-radius: 6px;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-family: inherit;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-  }
-
-  .filter-chip:hover {
-    color: var(--text);
-    background: var(--bg-hover);
-  }
-
-  .filter-chip.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-    font-weight: 600;
-  }
-
-  .voice-count {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-  }
-
-  /* ============================================================
-     VOICE LIST
-     ============================================================ */
-  .voice-list {
-    max-height: calc(100vh - 380px);
-    min-height: 320px;
-    overflow-y: auto;
-    padding-right: 6px;
-  }
-
-  .voice-list::-webkit-scrollbar { width: 4px; }
-  .voice-list::-webkit-scrollbar-track { background: transparent; }
-  .voice-list::-webkit-scrollbar-thumb {
-    background: var(--border-hi);
-    border-radius: 2px;
-  }
-
-  .voice-lang { margin-bottom: 22px; }
-  .voice-lang.hidden { display: none; }
-
-  .voice-lang-header {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .voice-gender-label {
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 10px 0 6px;
-    grid-column: 1 / -1;
-  }
-
-  .voice-chips {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 6px;
-  }
-
-  .voice-chip {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 10px 12px;
-    background: var(--bg-input);
-    border: 1px solid transparent;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-    position: relative;
-  }
-
-  .voice-chip.hidden { display: none; }
-
-  .voice-chip:hover {
-    background: var(--bg-hover);
-    border-color: var(--border-hi);
-  }
-
-  .voice-chip.selected {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
-
-  .chip-content { flex: 1; min-width: 0; }
-
-  .chip-name {
-    display: block;
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text);
-    letter-spacing: -0.01em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .chip-desc {
-    display: block;
-    font-size: 0.68rem;
-    color: var(--text-dim);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .voice-chip.selected .chip-name { color: white; }
-  .voice-chip.selected .chip-desc { color: rgba(255,255,255,0.6); }
-
-  .chip-play {
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    border: 1px solid var(--border-hi);
-    border-radius: 50%;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.5rem;
-    padding: 0;
-    transition: all 0.15s var(--ease);
-  }
-
-  .chip-play:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-
-  .chip-play.playing {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-
-  /* ============================================================
-     SELECTED BAR
-     ============================================================ */
-  .selected-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    margin-top: 14px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-  }
-
-  .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--success);
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
-    flex-shrink: 0;
-  }
-
-  .selected-bar .label {
-    font-size: 0.68rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-  }
-
-  .selected-bar .name {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--text);
-    margin-left: auto;
-  }
-
-  .selected-bar .id {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    padding: 2px 7px;
-    background: var(--bg);
-    border-radius: 4px;
-  }
-
-  /* ============================================================
-     CONTROLS
-     ============================================================ */
-  .speed-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .speed-label {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    min-width: 50px;
-  }
-
-  input[type=range] {
-    flex: 1;
-    height: 3px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: var(--border-hi);
-    border-radius: 2px;
-    outline: none;
-  }
-
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 15px;
-    height: 15px;
-    background: white;
-    border: 2px solid var(--accent);
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-  }
-
-  input[type=range]::-webkit-slider-thumb:hover {
-    background: var(--accent);
-    transform: scale(1.1);
-  }
-
-  .speed-value {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    min-width: 52px;
-    text-align: right;
-  }
-
-  /* ============================================================
-     SPEAK BUTTON
-     ============================================================ */
-  .speak-btn {
-    width: 100%;
-    padding: 15px;
-    margin-top: 18px;
-    background: var(--text);
-    color: var(--bg);
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: 0.92rem;
-    font-weight: 600;
-    font-family: inherit;
-    letter-spacing: -0.01em;
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .speak-btn:hover:not(:disabled) {
-    background: white;
-    transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.12);
-  }
-
-  .speak-btn:disabled { opacity: 0.55; cursor: wait; }
-
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid rgba(10,10,10,0.2);
-    border-top-color: var(--bg);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* ============================================================
-     STATUS
-     ============================================================ */
-  .status {
-    margin-top: 12px;
-    padding: 10px 13px;
-    background: var(--bg-input);
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-    transition: all 0.2s var(--ease);
-  }
-
-  .status.ok {
-    color: var(--success);
-    background: rgba(34, 197, 94, 0.08);
-    border-color: rgba(34, 197, 94, 0.2);
-  }
-
-  .status.err {
-    color: var(--danger);
-    background: rgba(239, 68, 68, 0.08);
-    border-color: rgba(239, 68, 68, 0.2);
-  }
-
-  .status.busy {
-    color: var(--warning);
-    background: rgba(234, 179, 8, 0.08);
-    border-color: rgba(234, 179, 8, 0.2);
-  }
-
-  /* ============================================================
-     AUDIO PLAYER
-     ============================================================ */
-  audio {
-    width: 100%;
-    margin-top: 12px;
-    display: none;
-    border-radius: var(--radius-sm);
-    filter: invert(0.9) hue-rotate(180deg);
-  }
-
-  audio.show { display: block; }
-
-  /* ============================================================
-     HISTORY
-     ============================================================ */
-  .history-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 11px 13px;
-    margin-bottom: 7px;
-    background: var(--bg-input);
-    border-radius: var(--radius-md);
-    border: 1px solid transparent;
-    transition: all 0.15s var(--ease);
-  }
-
-  .history-item:hover {
-    background: var(--bg-hover);
-    border-color: var(--border);
-  }
-
-  .history-item .info { flex: 1; min-width: 0; }
-
-  .history-item .text {
-    font-size: 0.83rem;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .history-item .meta {
-    font-size: 0.68rem;
-    color: var(--text-dim);
-    margin-top: 2px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  .history-item button {
-    padding: 5px 11px;
-    background: transparent;
-    border: 1px solid var(--border-hi);
-    border-radius: 6px;
-    color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 500;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.15s var(--ease);
-    flex-shrink: 0;
-  }
-
-  .history-item button:hover {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-
-  .empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-dim);
-    font-size: 0.85rem;
-  }
-
-  /* ============================================================
-     API / DOCS
-     ============================================================ */
-  .api-block { margin-bottom: 22px; }
-
-  .api-label {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-bottom: 8px;
-    font-weight: 600;
-  }
-
-  .api-label strong { color: var(--text); font-weight: 600; }
-
-  .api-code {
-    display: block;
-    padding: 14px 16px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: #d8b4fe;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
-    overflow-x: auto;
-    white-space: pre;
-    line-height: 1.7;
-  }
-
-  .endpoint-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 10px;
-  }
-
-  .endpoint-card {
-    padding: 14px 16px;
-    background: var(--bg-input);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-  }
-
-  .endpoint-method {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-    margin-right: 8px;
-  }
-
-  .endpoint-method.get { background: rgba(34, 197, 94, 0.15); color: var(--success); }
-  .endpoint-method.post { background: rgba(124, 58, 237, 0.15); color: var(--accent-hi); }
-
-  .endpoint-path {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.78rem;
-    color: var(--text);
-    font-weight: 600;
-  }
-
-  .endpoint-desc {
-    font-size: 0.72rem;
-    color: var(--text-dim);
-    margin-top: 6px;
-  }
-
-  /* ============================================================
-     STATS GRID
-     ============================================================ */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-
-  .stat-card {
-    padding: 18px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-  }
-
-  .stat-card .value {
-    font-size: 1.8rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    color: var(--text);
-    line-height: 1;
-  }
-
-  .stat-card .label {
-    font-size: 0.7rem;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-top: 6px;
-    font-weight: 600;
-  }
-
-  /* ============================================================
-     RESPONSIVE
-     ============================================================ */
-  .menu-toggle {
-    display: none;
-  }
-
-  @media (max-width: 900px) {
-    .sidebar {
-      position: fixed;
-      left: 0;
-      top: 0;
-      z-index: 100;
-      transform: translateX(-100%);
-      transition: transform 0.25s var(--ease);
-      box-shadow: 4px 0 24px rgba(0,0,0,0.5);
-    }
-
-    .sidebar.open {
-      transform: translateX(0);
-    }
-
-    .main {
-      padding: 20px 18px 60px;
-    }
-
-    .menu-toggle {
-      display: flex;
-      position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 101;
-      width: 40px;
-      height: 40px;
-      align-items: center;
-      justify-content: center;
-      background: var(--bg-card);
-      border: 1px solid var(--border-hi);
-      border-radius: 10px;
-      color: var(--text);
-      cursor: pointer;
-      font-size: 1.1rem;
-    }
-
-    .overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 99;
-      backdrop-filter: blur(4px);
-    }
-
-    .overlay.show { display: block; }
-
-    .voice-chips { grid-template-columns: 1fr; }
-  }
-</style>
-</head>
-<body>
-
-<!-- Mobile menu toggle -->
-<button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
-<div class="overlay" id="overlay"></div>
-
-<!-- ============================================================
-     SIDEBAR
-     ============================================================ -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="brand-mark">🎙️</div>
-    <div class="brand-text">
-      <span class="brand-name">VoiceKit</span>
-      <span class="brand-version">v1.0</span>
-    </div>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">Workspace</div>
-    <button class="nav-btn active" data-view="generate">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-        <line x1="12" y1="19" x2="12" y2="22"></line>
-      </svg>
-      Generate
-    </button>
-    <button class="nav-btn" data-view="voices">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 12h3l3-9 6 18 3-9h3"></path>
-      </svg>
-      Voices
-      <span class="nav-badge" id="voiceCountBadge">54</span>
-    </button>
-    <button class="nav-btn" data-view="history">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-      History
-    </button>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">Developers</div>
-    <button class="nav-btn" data-view="api">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="16 18 22 12 16 6"></polyline>
-        <polyline points="8 6 2 12 8 18"></polyline>
-      </svg>
-      API Reference
-    </button>
-    <button class="nav-btn" data-view="about">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="16" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-      </svg>
-      About
-    </button>
-  </div>
-
-  <div class="sidebar-footer">
-    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank" rel="noopener">Space</a>
-    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener">Kokoro-82M</a>
-  </div>
-</aside>
-
-<!-- ============================================================
-     MAIN CONTENT
-     ============================================================ -->
-<main class="main">
-
-  <!-- ---------- VIEW: GENERATE ---------- -->
-  <section class="view active" id="view-generate">
-    <div class="view-header">
-      <h1 class="view-title">Generate Speech</h1>
-      <p class="view-subtitle">Turn text into natural audio with 54 voices.</p>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="value">54</div>
-        <div class="label">Voices</div>
-      </div>
-      <div class="stat-card">
-        <div class="value">9</div>
-        <div class="label">Languages</div>
-      </div>
-      <div class="stat-card">
-        <div class="value">Free</div>
-        <div class="label">Forever</div>
-      </div>
-    </div>
-
-    <!-- Text input -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Text to speak</span>
-        <span class="card-hint" id="charCount">0 / 800</span>
-      </div>
-      <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not me talking.</textarea>
-      <div class="quick">
-        <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
-        <button data-p="Hello world, this is my voice.">Hello world</button>
-        <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
-        <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
-        <button data-p="The night is young and the bass is deep.">Night vibe</button>
-      </div>
-    </div>
-
-    <!-- Controls -->
-    <div class="card">
-      <div class="speed-row">
-        <span class="speed-label">Speed</span>
-        <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
-        <span class="speed-value" id="speedVal">1.00×</span>
-      </div>
-
-      <button class="speak-btn" id="speakBtn">
-        <span id="speakBtnContent">🔊 Speak</span>
-      </button>
-
-      <div class="status" id="status">Ready. Pick a voice and hit Speak (Ctrl+Enter).</div>
-      <audio id="player" controls></audio>
-    </div>
-  </section>
-
-  <!-- ---------- VIEW: VOICES ---------- -->
-  <section class="view" id="view-voices">
-    <div class="view-header">
-      <h1 class="view-title">Voices</h1>
-      <p class="view-subtitle">Browse, filter, and preview all 54 voices.</p>
-    </div>
-
-    <div class="card">
-      <div class="search-wrap">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"></circle>
-          <path d="m21 21-4.35-4.35"></path>
-        </svg>
-        <input type="text" id="voiceSearch" placeholder="Search voices..." autocomplete="off">
-      </div>
-
-      <div class="filter-row" id="voiceFilter">
-        <button class="filter-chip active" data-filter="all">All</button>
-        <button class="filter-chip" data-filter="male">Male</button>
-        <button class="filter-chip" data-filter="female">Female</button>
-        <button class="filter-chip" data-filter="American English">American</button>
-        <button class="filter-chip" data-filter="British English">British</button>
-        <button class="filter-chip" data-filter="Japanese">Japanese</button>
-        <button class="filter-chip" data-filter="Mandarin Chinese">Mandarin</button>
-        <button class="filter-chip" data-filter="Spanish">Spanish</button>
-        <button class="filter-chip" data-filter="French">French</button>
-        <button class="filter-chip" data-filter="Hindi">Hindi</button>
-        <button class="filter-chip" data-filter="Italian">Italian</button>
-        <button class="filter-chip" data-filter="Portuguese">Portuguese</button>
-      </div>
-
-      <div class="voice-count" id="voiceCount"></div>
-      <div class="voice-list" id="voiceList">
-        <div class="empty">Loading voices...</div>
-      </div>
-
-      <div class="selected-bar">
-        <span class="status-dot"></span>
-        <span class="label">Selected</span>
-        <span class="name" id="selectedName">Adam</span>
-        <span class="id" id="selectedId">am_adam</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------- VIEW: HISTORY ---------- -->
-  <section class="view" id="view-history">
-    <div class="view-header">
-      <h1 class="view-title">History</h1>
-      <p class="view-subtitle">Your recent generations in this session.</p>
-    </div>
-
-    <div class="card">
-      <div id="history">
-        <div class="empty">Nothing here yet — try generating some speech.</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------- VIEW: API ---------- -->
-  <section class="view" id="view-api">
-    <div class="view-header">
-      <h1 class="view-title">API Reference</h1>
-      <p class="view-subtitle">Integrate VoiceKit into your apps. Simple HTTP, no SDK required.</p>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Endpoints</span>
-      </div>
-      <div class="endpoint-grid">
-        <div class="endpoint-card">
-          <div><span class="endpoint-method post">POST</span><span class="endpoint-path">/speak</span></div>
-          <div class="endpoint-desc">Generate speech. Returns WAV audio.</div>
-        </div>
-        <div class="endpoint-card">
-          <div><span class="endpoint-method get">GET</span><span class="endpoint-path">/voices</span></div>
-          <div class="endpoint-desc">List all available voices.</div>
-        </div>
-        <div class="endpoint-card">
-          <div><span class="endpoint-method get">GET</span><span class="endpoint-path">/voices/catalog</span></div>
-          <div class="endpoint-desc">Voices organized by language and gender.</div>
-        </div>
-        <div class="endpoint-card">
-          <div><span class="endpoint-method get">GET</span><span class="endpoint-path">/health</span></div>
-          <div class="endpoint-desc">Service health and cache status.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Quick Start</span>
-      </div>
-
-      <div class="api-block">
-        <div class="api-label"><strong>curl</strong></div>
-        <code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hello world","voice":"am_adam","speed":1.0}' \
-  -o voice.wav</code>
-      </div>
-
-      <div class="api-block">
-        <div class="api-label"><strong>Python</strong></div>
-        <code class="api-code">import requests
-
-response = requests.post(
-    "https://voicekit-prod.vercel.app/speak",
-    json={
-        "text": "Hello world",
-        "voice": "am_adam",
-        "speed": 1.0,
-    },
-)
-
-with open("voice.wav", "wb") as f:
-    f.write(response.content)</code>
-      </div>
-
-      <div class="api-block">
-        <div class="api-label"><strong>JavaScript</strong></div>
-        <code class="api-code">const response = await fetch(
-  "https://voicekit-prod.vercel.app/speak",
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: "Hello world",
-      voice: "am_adam",
-      speed: 1.0,
-    }),
-  }
-);
-
-const blob = await response.blob();
-new Audio(URL.createObjectURL(blob)).play();</code>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------- VIEW: ABOUT ---------- -->
-  <section class="view" id="view-about">
-    <div class="view-header">
-      <h1 class="view-title">About VoiceKit</h1>
-      <p class="view-subtitle">Free, fast, natural text-to-speech for everyone.</p>
-    </div>
-
-    <div class="card">
-      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
-        VoiceKit is a text-to-speech interface built on top of the open-source
-        Kokoro-82M model. It runs on Hugging Face Spaces and is proxied through
-        Vercel for fast global delivery.
-      </p>
-      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
-        All 54 voices are available in 9 languages. The API is free and public —
-        no signup, no key, no rate limit beyond the Space's queue.
-      </p>
-      <p style="color: var(--text-dim); font-size: 0.85rem; line-height: 1.7;">
-        Built with Flask, ONNX, and Kokoro-82M. Made with care.
-      </p>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Links</span>
-      </div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Hugging Face Space →</a>
-        <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Kokoro-82M Model →</a>
-        <a href="https://voicekit-prod.vercel.app/voices" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0;">Voice Catalog API →</a>
-      </div>
-    </div>
-  </section>
-
-</main>
-
-<script>
-// ============================================================
-// CONFIG
-// ============================================================
-const API_URL = "";
-
-// ============================================================
-// STATE
-// ============================================================
-let selectedVoiceId = "am_adam";
-let selectedVoiceName = "Adam";
-let currentFilter = "all";
-let currentSearch = "";
-let voiceCatalog = null;
-const history = [];
-
-// ============================================================
-// ELEMENTS
-// ============================================================
-const textEl          = document.getElementById('text');
-const speedEl         = document.getElementById('speed');
-const speedVal        = document.getElementById('speedVal');
-const speakBtn        = document.getElementById('speakBtn');
-const speakBtnContent = document.getElementById('speakBtnContent');
-const statusEl        = document.getElementById('status');
-const player          = document.getElementById('player');
-const historyEl       = document.getElementById('history');
-const charCount       = document.getElementById('charCount');
-const voiceList       = document.getElementById('voiceList');
-const voiceSearch     = document.getElementById('voiceSearch');
-const voiceFilter     = document.getElementById('voiceFilter');
-const voiceCount      = document.getElementById('voiceCount');
-const voiceCountBadge = document.getElementById('voiceCountBadge');
-const selectedName    = document.getElementById('selectedName');
-const selectedId      = document.getElementById('selectedId');
-const sidebar         = document.getElementById('sidebar');
-const menuToggle      = document.getElementById('menuToggle');
-const overlay         = document.getElementById('overlay');
-
-// ============================================================
-// NAVIGATION
-// ============================================================
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.onclick = () => {
-    const view = btn.dataset.view;
-
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    const target = document.getElementById('view-' + view);
-    if (target) target.classList.add('active');
-
-    // Close mobile sidebar
-    sidebar.classList.remove('open');
-    overlay.classList.remove('show');
-
-    // Scroll top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-});
-
-// Mobile sidebar toggle
-menuToggle.onclick = () => {
-  sidebar.classList.toggle('open');
-  overlay.classList.toggle('show');
-};
-
-overlay.onclick = () => {
-  sidebar.classList.remove('open');
-  overlay.classList.remove('show');
-};
-
-// ============================================================
-// HELPERS
-// ============================================================
-function setStatus(msg, cls) {
-  statusEl.className = 'status ' + (cls || '');
-  statusEl.textContent = msg;
-}
-
-speedEl.oninput = () => {
-  speedVal.textContent = parseFloat(speedEl.value).toFixed(2) + '×';
-};
-
-textEl.oninput = () => {
-  const len = textEl.value.length;
-  charCount.textContent = len + ' / 800';
-  charCount.className = 'card-hint';
-  if (len > 700) charCount.classList.add('warn');
-  if (len >= 800) charCount.classList.add('over');
-};
-
-textEl.oninput();
-
-document.querySelectorAll('.quick button').forEach(btn => {
-  btn.onclick = () => {
-    textEl.value = btn.dataset.p;
-    textEl.oninput();
-    textEl.focus();
-  };
-});
-
-// ============================================================
-// LOAD VOICES
-// ============================================================
-async function loadVoices() {
-  try {
-    const res = await fetch('/voices/catalog');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    voiceCatalog = await res.json();
-    renderVoicePicker();
-    updateVoiceCount();
-  } catch (e) {
-    voiceList.innerHTML = '<div class="empty" style="color:#ef4444;">Failed to load voices: ' + e.message + '</div>';
-  }
-}
-
-function renderVoicePicker() {
-  if (!voiceCatalog) return;
-  voiceList.innerHTML = '';
-
-  const langOrder = [
-    'American English', 'British English', 'Japanese', 'Mandarin Chinese',
-    'Spanish', 'French', 'Hindi', 'Italian', 'Portuguese'
-  ];
-
-  langOrder.forEach(lang => {
-    if (!voiceCatalog[lang]) return;
-    const groups = voiceCatalog[lang];
-
-    const block = document.createElement('div');
-    block.className = 'voice-lang';
-    block.dataset.lang = lang;
-    block.innerHTML = '<div class="voice-lang-header">' + lang + '</div>';
-
-    ['Female', 'Male'].forEach(gender => {
-      const voices = groups[gender];
-      if (!voices || voices.length === 0) return;
-
-      const row = document.createElement('div');
-      row.className = 'voice-chips';
-      row.innerHTML = '<div class="voice-gender-label">' + gender + '</div>';
-
-      voices.forEach(v => {
-        const [id, name, desc] = v;
-        const chip = document.createElement('div');
-        const isSelected = id === selectedVoiceId;
-        chip.className = 'voice-chip' + (isSelected ? ' selected' : '');
-        chip.dataset.id = id;
-        chip.dataset.name = name.toLowerCase();
-        chip.dataset.lang = lang;
-        chip.dataset.gender = gender.toLowerCase();
-        chip.innerHTML =
-          '<div class="chip-content">' +
-            '<span class="chip-name">' + name + '</span>' +
-            '<span class="chip-desc">' + desc + '</span>' +
-          '</div>' +
-          '<button class="chip-play" data-id="' + id + '" aria-label="Preview">▶</button>';
-
-        chip.onclick = (e) => {
-          if (e.target.closest('.chip-play')) return;
-          selectVoice(id, name, chip);
-        };
-
-        chip.querySelector('.chip-play').onclick = (e) => {
-          e.stopPropagation();
-          previewVoice(id, e.target);
-        };
-
-        row.appendChild(chip);
-      });
-
-      block.appendChild(row);
-    });
-
-    voiceList.appendChild(block);
-  });
-}
-
-function selectVoice(id, name, chip) {
-  selectedVoiceId = id;
-  selectedVoiceName = name;
-  selectedName.textContent = name;
-  selectedId.textContent = id;
-
-  document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
-  chip.classList.add('selected');
-}
-
-function updateVoiceCount() {
-  const visible = document.querySelectorAll('.voice-chip:not(.hidden)').length;
-  voiceCount.textContent = visible + ' voice' + (visible === 1 ? '' : 's');
-  if (voiceCountBadge && currentFilter === 'all' && !currentSearch) {
-    voiceCountBadge.textContent = visible;
-  }
-}
-
-// ============================================================
-// FILTERS
-// ============================================================
-voiceSearch.oninput = (e) => {
-  currentSearch = e.target.value.toLowerCase().trim();
-  applyFilters();
-};
-
-voiceFilter.onclick = (e) => {
-  const chip = e.target.closest('.filter-chip');
-  if (!chip) return;
-  voiceFilter.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  chip.classList.add('active');
-  currentFilter = chip.dataset.filter;
-  applyFilters();
-};
-
-function applyFilters() {
-  document.querySelectorAll('.voice-chip').forEach(chip => {
-    const id     = chip.dataset.id.toLowerCase();
-    const name   = chip.dataset.name;
-    const lang   = chip.dataset.lang;
-    const gender = chip.dataset.gender;
-
-    const matchesSearch = !currentSearch || id.includes(currentSearch) || name.includes(currentSearch);
-
-    let matchesFilter = true;
-    if (currentFilter === 'male')   matchesFilter = gender === 'male';
-    else if (currentFilter === 'female') matchesFilter = gender === 'female';
-    else if (currentFilter !== 'all') matchesFilter = lang === currentFilter;
-
-    chip.classList.toggle('hidden', !(matchesSearch && matchesFilter));
-  });
-
-  document.querySelectorAll('.voice-lang').forEach(block => {
-    const any = block.querySelectorAll('.voice-chip:not(.hidden)').length;
-    block.classList.toggle('hidden', any === 0);
-  });
-
-  updateVoiceCount();
-}
-
-// ============================================================
-// PREVIEW
-// ============================================================
-async function previewVoice(voiceId, btn) {
-  if (btn) {
-    btn.textContent = '⋯';
-    btn.classList.add('playing');
-  }
-
-  try {
-    const res = await fetch(`${API_URL}/speak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: "Listen closely. You can barely tell this is not me talking.",
-        voice: voiceId,
-        speed: 1.0
-      })
-    });
-
-    if (!res.ok) throw new Error('Preview failed');
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play();
-
-    if (btn) {
-      btn.textContent = '■';
-      audio.onended = () => {
-        btn.textContent = '▶';
-        btn.classList.remove('playing');
-      };
-    }
-  } catch (e) {
-    console.error(e);
-    if (btn) {
-      btn.textContent = '✗';
-      setTimeout(() => {
-        btn.textContent = '▶';
-        btn.classList.remove('playing');
-      }, 1500);
-    }
-  }
-}
-
-// ============================================================
-// SPEAK
-// ============================================================
-async function speak() {
-  const text = textEl.value.trim();
-  if (!text) { setStatus('Type something first.', 'err'); return; }
-
-  const speed = parseFloat(speedEl.value);
-
-  speakBtn.disabled = true;
-  speakBtnContent.innerHTML = '<span class="spinner"></span> Generating...';
-  setStatus('Generating audio...', 'busy');
-
-  const t0 = performance.now();
-
-  try {
-    const res = await fetch(`${API_URL}/speak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: selectedVoiceId, speed })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Server error ${res.status}`);
-    }
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    player.src = url;
-    player.classList.add('show');
-    await player.play().catch(() => {});
-
-    const ms = Math.round(performance.now() - t0);
-    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
-
-    history.unshift({ text, voice: selectedVoiceName, speed, url, ts: Date.now(), ms });
-    if (history.length > 20) history.pop();
-    renderHistory();
-  } catch (e) {
-    console.error(e);
-    setStatus('Error: ' + e.message, 'err');
-  } finally {
-    speakBtn.disabled = false;
-    speakBtnContent.textContent = '🔊 Speak';
-  }
-}
-
-// ============================================================
-// HISTORY
-// ============================================================
-function renderHistory() {
-  if (!history.length) {
-    historyEl.innerHTML = '<div class="empty">Nothing here yet — try generating some speech.</div>';
-    return;
-  }
-
-  historyEl.innerHTML = '';
-  history.forEach(h => {
-    const ts = new Date(h.ts).toLocaleTimeString();
-    const preview = h.text.length > 80 ? h.text.substring(0, 80) + '…' : h.text;
-
-    const row = document.createElement('div');
-    row.className = 'history-item';
-    row.innerHTML =
-      '<div class="info">' +
-        '<div class="text">' + preview.replace(/</g, '&lt;') + '</div>' +
-        '<div class="meta">' + h.voice + ' · ' + h.speed + '× · ' + ts + ' · ' + h.ms + ' ms</div>' +
-      '</div>' +
-      '<button>▶ Play</button>';
-
-    row.querySelector('button').onclick = () => {
-      player.src = h.url;
-      player.classList.add('show');
-      player.play();
-    };
-
-    historyEl.appendChild(row);
-  });
-}
-
-// ============================================================
-// KEYBOARD
-// ============================================================
-textEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    speak();
-  }
-});
-
-speakBtn.onclick = speak;
-
-// ============================================================
-// INIT
-// ============================================================
-loadVoices();
-setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
-</script>
-</body>
-</html>
-'''
-
-
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Sidebar Navigation")
+    print(" Voice Indicator Patch")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -1679,40 +30,195 @@ def patch():
 
     backup(HTML)
 
-    with open(HTML, "w", encoding="utf-8") as f:
-        f.write(NEW_HTML)
+    with open(HTML, "r", encoding="utf-8") as f:
+        src = f.read()
 
-    print(f"  wrote -> {os.path.relpath(HTML, BASE)} ({len(NEW_HTML):,} chars)")
+    original = src
+    changes = []
+
+    # ---------- 1) Add CSS for the voice indicator ----------
+    new_css = '''
+  /* ---------- VOICE INDICATOR ---------- */
+  .voice-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 14px;
+  }
+
+  .voice-indicator .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    flex-shrink: 0;
+  }
+
+  .voice-indicator .label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .voice-indicator .voice-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .voice-indicator .voice-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    padding: 2px 6px;
+    background: var(--bg);
+    border-radius: 4px;
+  }
+
+  .voice-indicator .change-btn {
+    margin-left: auto;
+    padding: 5px 10px;
+    background: transparent;
+    border: 1px solid var(--border-hi);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s var(--ease);
+    flex-shrink: 0;
+  }
+
+  .voice-indicator .change-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+'''
+
+    if 'voice-indicator' not in src:
+        src = src.replace('</style>', new_css + '\n</style>', 1)
+        changes.append("indicator CSS")
+
+    # ---------- 2) Insert the indicator HTML into the Generate view ----------
+    # Insert after the card-header of the Text-to-speak card
+    marker = '<span class="card-hint" id="charCount">0 / 800</span>\n      </div>\n      <textarea id="text"'
+    replacement = '''<span class="card-hint" id="charCount">0 / 800</span>
+      </div>
+
+      <!-- Voice indicator -->
+      <div class="voice-indicator">
+        <span class="dot"></span>
+        <span class="label">Using</span>
+        <span class="voice-name" id="genVoiceName">Adam</span>
+        <span class="voice-id" id="genVoiceId">am_adam</span>
+        <button class="change-btn" id="changeVoiceBtn">Change →</button>
+      </div>
+
+      <textarea id="text"'''
+
+    if 'genVoiceName' not in src and marker in src:
+        src = src.replace(marker, replacement, 1)
+        changes.append("indicator HTML")
+    elif 'genVoiceName' in src:
+        changes.append("indicator already present")
+
+    # ---------- 3) Add JS to sync the indicator ----------
+    js_addition = '''
+// ============================================================
+// VOICE INDICATOR SYNC
+// ============================================================
+function updateVoiceIndicator() {
+  const nameEl = document.getElementById('genVoiceName');
+  const idEl   = document.getElementById('genVoiceId');
+  if (nameEl) nameEl.textContent = selectedVoiceName;
+  if (idEl)   idEl.textContent   = selectedVoiceId;
+}
+
+// "Change voice" button → jump to Voices view
+const changeVoiceBtn = document.getElementById('changeVoiceBtn');
+if (changeVoiceBtn) {
+  changeVoiceBtn.onclick = () => {
+    // Simulate clicking the Voices nav button
+    const voicesNavBtn = document.querySelector('.nav-btn[data-view="voices"]');
+    if (voicesNavBtn) voicesNavBtn.click();
+  };
+}
+'''
+
+    # Insert after the existing selectVoice function
+    anchor = "function selectVoice(id, name, chip) {"
+    if 'updateVoiceIndicator' not in src and anchor in src:
+        # Find the end of the selectVoice function
+        start = src.find(anchor)
+        # Find the matching closing brace
+        depth = 0
+        i = start
+        end = -1
+        while i < len(src):
+            if src[i] == '{':
+                depth += 1
+            elif src[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    end = i + 1
+                    break
+            i += 1
+
+        if end > 0:
+            # Insert after the function
+            src = src[:end] + "\n" + js_addition + src[end:]
+            changes.append("indicator JS")
+
+    # ---------- 4) Call updateVoiceIndicator inside selectVoice ----------
+    # Find the line inside selectVoice that ends with chip.classList.add('selected');
+    old_line = "chip.classList.add('selected');\n}"
+    new_line = "chip.classList.add('selected');\n  updateVoiceIndicator();\n}"
+
+    if 'updateVoiceIndicator();' not in src.split('function selectVoice')[1][:600] if 'function selectVoice' in src else False:
+        # Try to insert inside selectVoice
+        if old_line in src:
+            src = src.replace(old_line, new_line, 1)
+            changes.append("selectVoice sync")
+
+    # ---------- 5) Also initialize on page load ----------
+    old_init = "loadVoices();\nsetStatus('Ready."
+    new_init = "loadVoices();\nupdateVoiceIndicator();\nsetStatus('Ready."
+
+    if 'updateVoiceIndicator();\nsetStatus' not in src and old_init in src:
+        src = src.replace(old_init, new_init, 1)
+        changes.append("init call")
+
+    if src == original:
+        print("  No changes made.")
+        return
+
+    with open(HTML, "w", encoding="utf-8") as f:
+        f.write(src)
+
+    print(f"  [OK] Applied: {', '.join(changes)}")
     print()
     print("=" * 60)
     print(" DONE")
     print("=" * 60)
     print()
-    print(" Layout: two columns")
-    print("   Left  — 240px sidebar (fixed, sticky)")
-    print("   Right — main content area")
+    print(" What's new:")
+    print("   • Voice indicator appears in the Generate view")
+    print("   • Shows: dot + 'USING' + voice name + voice id")
+    print("   • 'Change →' button jumps to the Voices view")
+    print("   • Indicator updates automatically when you pick a voice")
     print()
-    print(" Sidebar contains:")
-    print("   • Brand mark + VoiceKit logo")
-    print("   • Workspace section: Generate / Voices / History")
-    print("   • Developers section: API Reference / About")
-    print("   • Footer: Space / Kokoro-82M links")
-    print()
-    print(" Views switch without page reload:")
-    print("   • Generate — text input + controls + speak")
-    print("   • Voices — search + filters + all 54 voices")
-    print("   • History — recent generations")
-    print("   • API — endpoints + code examples")
-    print("   • About — info + links")
-    print()
-    print(" Mobile:")
-    print("   • Sidebar slides in from the left")
-    print("   • Hamburger button top-left")
-    print("   • Tap overlay to close")
-    print()
-    print(" Deploy:")
-    print("   vercel --prod")
-    print()
+    print(" Reload: Ctrl + Shift + R")
     print(f" Backup: {os.path.relpath(HTML, BASE)}.bak")
     print("=" * 60)
 

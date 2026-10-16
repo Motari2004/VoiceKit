@@ -950,6 +950,74 @@
 
     .voice-chips { grid-template-columns: 1fr; }
   }
+
+  /* ---------- VOICE INDICATOR ---------- */
+  .voice-indicator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: 14px;
+  }
+
+  .voice-indicator .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    flex-shrink: 0;
+  }
+
+  .voice-indicator .label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .voice-indicator .voice-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .voice-indicator .voice-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    padding: 2px 6px;
+    background: var(--bg);
+    border-radius: 4px;
+  }
+
+  .voice-indicator .change-btn {
+    margin-left: auto;
+    padding: 5px 10px;
+    background: transparent;
+    border: 1px solid var(--border-hi);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s var(--ease);
+    flex-shrink: 0;
+  }
+
+  .voice-indicator .change-btn:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
 </style>
 </head>
 <body>
@@ -1055,6 +1123,16 @@
         <span class="card-title">Text to speak</span>
         <span class="card-hint" id="charCount">0 / 800</span>
       </div>
+
+      <!-- Voice indicator -->
+      <div class="voice-indicator">
+        <span class="dot"></span>
+        <span class="label">Using</span>
+        <span class="voice-name" id="genVoiceName">Adam</span>
+        <span class="voice-id" id="genVoiceId">am_adam</span>
+        <button class="change-btn" id="changeVoiceBtn">Change →</button>
+      </div>
+
       <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not me talking.</textarea>
       <div class="quick">
         <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
@@ -1447,7 +1525,29 @@ function selectVoice(id, name, chip) {
 
   document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
   chip.classList.add('selected');
+  updateVoiceIndicator();
 }
+
+// ============================================================
+// VOICE INDICATOR SYNC
+// ============================================================
+function updateVoiceIndicator() {
+  const nameEl = document.getElementById('genVoiceName');
+  const idEl   = document.getElementById('genVoiceId');
+  if (nameEl) nameEl.textContent = selectedVoiceName;
+  if (idEl)   idEl.textContent   = selectedVoiceId;
+}
+
+// "Change voice" button → jump to Voices view
+const changeVoiceBtn = document.getElementById('changeVoiceBtn');
+if (changeVoiceBtn) {
+  changeVoiceBtn.onclick = () => {
+    // Simulate clicking the Voices nav button
+    const voicesNavBtn = document.querySelector('.nav-btn[data-view="voices"]');
+    if (voicesNavBtn) voicesNavBtn.click();
+  };
+}
+
 
 function updateVoiceCount() {
   const visible = document.querySelectorAll('.voice-chip:not(.hidden)').length;
@@ -1642,6 +1742,7 @@ speakBtn.onclick = speak;
 // INIT
 // ============================================================
 loadVoices();
+updateVoiceIndicator();
 setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
 </script>
 </body>
