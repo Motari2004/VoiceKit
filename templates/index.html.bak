@@ -2014,6 +2014,22 @@
     }
   }
 
+
+  /* ---------- FORCE: SIDEBAR CONTENT BELOW HAMBURGER ---------- */
+  @media (max-width: 900px) {
+    .sidebar,
+    aside.sidebar,
+    #sidebar {
+      padding-top: 90px !important;
+    }
+
+    /* Also push the very first child (brand row) down */
+    .sidebar > .sidebar-brand,
+    .sidebar > :first-child {
+      margin-top: 0 !important;
+    }
+  }
+
 </style>
   <link rel="apple-touch-icon" href="/static/mic.png">
 </head>
