@@ -47,8 +47,30 @@ VOICES = [
 app = Flask(__name__)
 CORS(app)
 
+# In-memory cache (resets between cold starts)
 _cache = {}
 _cache_lock = threading.Lock()
+
+
+# ============================================================
+# CORS — explicit headers for every response
+# ============================================================
+@app.after_request
+def add_cors_headers(response):
+    """Add CORS headers to every response so any frontend can call us."""
+    response.headers["Access-Control-Allow-Origin"]  = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers["Access-Control-Max-Age"]       = "86400"
+    return response
+
+
+@app.route("/speak", methods=["OPTIONS"])
+@app.route("/voices", methods=["OPTIONS"])
+@app.route("/health", methods=["OPTIONS"])
+def cors_preflight():
+    """Handle browser preflight requests."""
+    return ("", 204)
 
 
 # ============================================================
@@ -184,3 +206,8 @@ def clear_cache():
     with _cache_lock:
         _cache.clear()
     return jsonify({"status": "cleared"})
+
+
+# ============================================================
+# NO app.run() — VERCEL IMPORTS `app` DIRECTLY
+# ============================================================
