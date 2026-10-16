@@ -1241,6 +1241,54 @@
     background: rgba(255, 255, 255, 0.12);
   }
 
+
+  /* ---------- FIX: PLAY BUTTON CONTRAST ---------- */
+  .chip-play {
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border-hi);
+  }
+
+  .chip-play:hover {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+  }
+
+  .chip-play.playing {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+    font-size: 0.55rem;
+    line-height: 1;
+  }
+
+  /* When the chip is selected, invert properly */
+  .voice-chip.selected .chip-play {
+    background: #0a0a0a;
+    color: #ffffff;
+    border-color: #0a0a0a;
+  }
+
+  .voice-chip.selected .chip-play:hover {
+    background: #333333;
+    color: #ffffff;
+    border-color: #333333;
+  }
+
+  .voice-chip.selected .chip-play.playing {
+    background: #0a0a0a;
+    color: #ffffff;
+    border-color: #0a0a0a;
+  }
+
+  /* Also fix any inline SVG inside the play button */
+  .chip-play svg {
+    width: 8px;
+    height: 8px;
+    fill: currentColor;
+  }
+
 </style>
 </head>
 <body>

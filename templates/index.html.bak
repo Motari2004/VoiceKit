@@ -1539,31 +1539,73 @@ new Audio(URL.createObjectURL(blob)).play();</code>
   <section class="view" id="view-about">
     <div class="view-header">
       <h1 class="view-title">About VoiceKit</h1>
-      <p class="view-subtitle">Free, fast, natural text-to-speech for everyone.</p>
+      <p class="view-subtitle">Professional voice synthesis. Fast, free, and built for everyone.</p>
     </div>
 
     <div class="card">
-      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
-        VoiceKit is a text-to-speech interface built on top of the open-source
-        -82M model. It runs on  Spaces and is proxied through
-        Vercel for fast global delivery.
+      <p style="color: var(--text); font-size: 0.95rem; line-height: 1.75; margin-bottom: 18px; font-weight: 500;">
+        VoiceKit turns your words into natural-sounding speech in seconds.
       </p>
-      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
-        All 54 voices are available in 9 languages. The API is free and public —
-        no signup, no key, no rate limit beyond the Space's queue.
+
+      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.75; margin-bottom: 16px;">
+        54 voices across 9 languages. Perfect for content creators, developers, podcasters, students, and anyone who needs high-quality audio without the studio session.
       </p>
-      <p style="color: var(--text-dim); font-size: 0.85rem; line-height: 1.7;">
-        Built with Flask, ONNX, and -82M. Made with care.
+
+      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.75; margin-bottom: 16px;">
+        No signup. No account. No credit card. Just type, pick a voice, and generate.
+      </p>
+
+      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.75;">
+        Everything is free, and everything is instant.
       </p>
     </div>
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Links</span>
+        <span class="card-title">What you can do</span>
       </div>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <a href="https://voicekit-prod.vercel.app/voices" target="_blank" rel="noopener" style="color: var(--text); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Voice Catalog API →</a>
-        <a href="https://voicekit-prod.vercel.app/health" target="_blank" rel="noopener" style="color: var(--text); text-decoration: none; font-size: 0.85rem; padding: 8px 0;">Service Status →</a>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="color: var(--text); font-size: 1.1rem;">🎬</span>
+          <div>
+            <div style="color: var(--text); font-weight: 600; font-size: 0.88rem;">Voiceovers for video</div>
+            <div style="color: var(--text-dim); font-size: 0.82rem; margin-top: 2px;">Create narration for YouTube, TikTok, Reels, and short films.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="color: var(--text); font-size: 1.1rem;">🎙️</span>
+          <div>
+            <div style="color: var(--text); font-weight: 600; font-size: 0.88rem;">Podcast intros and ads</div>
+            <div style="color: var(--text-dim); font-size: 0.82rem; margin-top: 2px;">Produce professional-sounding audio without hiring a voice actor.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="color: var(--text); font-size: 1.1rem;">💻</span>
+          <div>
+            <div style="color: var(--text); font-weight: 600; font-size: 0.88rem;">Add voice to your apps</div>
+            <div style="color: var(--text-dim); font-size: 0.82rem; margin-top: 2px;">A clean API that works with any language or framework.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: flex-start;">
+          <span style="color: var(--text); font-size: 1.1rem;">📚</span>
+          <div>
+            <div style="color: var(--text); font-weight: 600; font-size: 0.88rem;">Accessibility and learning</div>
+            <div style="color: var(--text-dim); font-size: 0.82rem; margin-top: 2px;">Read articles, books, and study materials aloud.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Why VoiceKit</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+        <div>✓ <strong style="color: var(--text);">Free forever</strong> — no subscriptions, no hidden costs</div>
+        <div>✓ <strong style="color: var(--text);">No signup</strong> — start generating immediately</div>
+        <div>✓ <strong style="color: var(--text);">54 voices</strong> — across 9 languages and every style</div>
+        <div>✓ <strong style="color: var(--text);">Fast</strong> — most generations complete in under 3 seconds</div>
+        <div>✓ <strong style="color: var(--text);">Open API</strong> — integrate anywhere</div>
       </div>
     </div>
   </section>
