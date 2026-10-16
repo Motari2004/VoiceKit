@@ -1289,6 +1289,164 @@
     fill: currentColor;
   }
 
+
+  /* ---------- CONTRAST BOOST ---------- */
+  :root {
+    /* Brighter greys for readability on dark backgrounds */
+    --text:        #f5f5f7;    /* was #f4f4f5 — nearly white */
+    --text-muted:  #b0b0b8;    /* was #8a8a93 — now clearly readable */
+    --text-dim:    #7a7a84;    /* was #5a5a63 — visible but subdued */
+  }
+
+  /* Sidebar footer */
+  .sidebar-footer {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+  }
+
+  .sidebar-footer a {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .sidebar-footer a:hover {
+    color: var(--text);
+  }
+
+  /* Bottom footer */
+  .footer {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .footer a {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .footer a:hover {
+    color: var(--text);
+  }
+
+  /* Nav icons — brighter by default */
+  .nav-icon {
+    color: var(--text-muted);
+  }
+
+  .nav-btn {
+    color: var(--text-muted);
+  }
+
+  .nav-btn:hover .nav-icon {
+    color: var(--text);
+  }
+
+  .nav-btn.active .nav-icon {
+    color: var(--text);
+  }
+
+  /* Nav section labels */
+  .nav-label {
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+
+  /* Card titles and hints */
+  .card-title {
+    color: var(--text-muted);
+  }
+
+  .card-hint {
+    color: var(--text-muted);
+  }
+
+  /* Chip play buttons — brighter icons */
+  .chip-play {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.2);
+    font-weight: 700;
+  }
+
+  .chip-play:hover {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+  }
+
+  .chip-play.playing {
+    background: var(--text);
+    color: var(--bg);
+    border-color: var(--text);
+  }
+
+  /* Voice chip descriptions */
+  .chip-desc {
+    color: var(--text-muted);
+  }
+
+  /* Selected bar */
+  .selected-bar .label {
+    color: var(--text-muted);
+  }
+
+  .selected-bar .id {
+    color: var(--text-muted);
+  }
+
+  /* Status text */
+  .status {
+    color: var(--text-muted);
+  }
+
+  /* Speed label */
+  .speed-label {
+    color: var(--text-muted);
+  }
+
+  /* Filter chips */
+  .filter-chip {
+    color: var(--text-muted);
+  }
+
+  .filter-chip:hover {
+    color: var(--text);
+  }
+
+  /* Quick buttons */
+  .quick button {
+    color: var(--text-muted);
+  }
+
+  .quick button:hover {
+    color: var(--text);
+  }
+
+  /* History meta */
+  .history-item .meta {
+    color: var(--text-muted);
+  }
+
+  /* Empty states */
+  .empty {
+    color: var(--text-muted);
+  }
+
+  /* Download and secondary buttons */
+  .download-btn {
+    color: var(--text-muted);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .download-btn:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgba(255, 255, 255, 0.35);
+  }
+
+  /* API code text is lighter */
+  .api-code {
+    color: #e0e0e0;
+  }
+
 </style>
 </head>
 <body>

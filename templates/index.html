@@ -1447,6 +1447,141 @@
     color: #e0e0e0;
   }
 
+
+  /* ---------- FAVORITES ---------- */
+  .voice-chip.favorited {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(251, 191, 36, 0.02));
+    border-color: rgba(251, 191, 36, 0.3);
+  }
+
+  .voice-chip.favorited .chip-name {
+    color: #fcd34d;
+  }
+
+  .voice-chip.favorited .chip-desc {
+    color: rgba(251, 191, 36, 0.7);
+  }
+
+  .voice-chip.favorited .chip-star {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.15);
+    border-color: rgba(251, 191, 36, 0.4);
+  }
+
+  /* ---------- SELECTED (IN USE) ---------- */
+  .voice-chip.selected {
+    background: #ffffff;
+    border-color: #ffffff;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2), 0 0 24px rgba(255, 255, 255, 0.15);
+    position: relative;
+  }
+
+  .voice-chip.selected::before {
+    content: "IN USE";
+    position: absolute;
+    top: -8px;
+    left: 10px;
+    padding: 2px 8px;
+    background: #ffffff;
+    color: #0a0a0a;
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    border-radius: 4px;
+    z-index: 2;
+  }
+
+  .voice-chip.selected .chip-name {
+    color: #0a0a0a;
+    font-weight: 700;
+  }
+
+  .voice-chip.selected .chip-desc {
+    color: rgba(10, 10, 10, 0.55);
+  }
+
+  /* ---------- STAR BUTTON ---------- */
+  .chip-star {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.65rem;
+    padding: 0;
+    transition: all 0.15s var(--ease);
+    margin-left: 4px;
+  }
+
+  .chip-star:hover {
+    background: rgba(251, 191, 36, 0.15);
+    border-color: rgba(251, 191, 36, 0.4);
+    color: #fbbf24;
+    transform: scale(1.1);
+  }
+
+  .voice-chip.selected .chip-star {
+    background: #0a0a0a;
+    border-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .voice-chip.selected .chip-star:hover {
+    background: #333333;
+    border-color: #333333;
+    color: #fbbf24;
+  }
+
+  /* Chip layout: name/desc + star + play */
+  .voice-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    position: relative;
+  }
+
+  .chip-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- FILTER: FAVORITES ---------- */
+  .filter-chip.fav-filter {
+    border-color: rgba(251, 191, 36, 0.3);
+    color: rgba(251, 191, 36, 0.9);
+  }
+
+  .filter-chip.fav-filter.active {
+    background: #fbbf24;
+    border-color: #fbbf24;
+    color: #0a0a0a;
+  }
+
+  .filter-chip.fav-filter .star-icon {
+    margin-right: 4px;
+  }
+
+  /* ---------- FAVORITES COUNT ---------- */
+  .fav-count {
+    display: inline-block;
+    padding: 1px 6px;
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border-radius: 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-left: 4px;
+  }
+
 </style>
 </head>
 <body>
@@ -1629,6 +1764,9 @@
         <button class="filter-chip" data-filter="Hindi">Hindi</button>
         <button class="filter-chip" data-filter="Italian">Italian</button>
         <button class="filter-chip" data-filter="Portuguese">Portuguese</button>
+        <button class="filter-chip fav-filter" data-filter="favorites">
+          <span class="star-icon">★</span>Favorites
+        </button>
       </div>
 
       <div class="voice-count" id="voiceCount"></div>
@@ -1971,12 +2109,16 @@ function renderVoicePicker() {
         chip.dataset.name = name.toLowerCase();
         chip.dataset.lang = lang;
         chip.dataset.gender = gender.toLowerCase();
+        const isFav = isFavorite(id);
         chip.innerHTML =
           '<div class="chip-content">' +
             '<span class="chip-name">' + name + '</span>' +
             '<span class="chip-desc">' + desc + '</span>' +
           '</div>' +
-          '<button class="chip-play" data-id="' + id + '" aria-label="Preview">▶</button>';
+          '<div class="chip-actions">' +
+            '<button class="chip-star" data-id="' + id + '" title="' + (isFav ? 'Remove from favorites' : 'Add to favorites') + '">' + (isFav ? '★' : '☆') + '</button>' +
+            '<button class="chip-play" data-id="' + id + '" aria-label="Preview">▶</button>' +
+          '</div>';
 
         chip.onclick = (e) => {
           if (e.target.closest('.chip-play')) return;
@@ -1986,6 +2128,11 @@ function renderVoicePicker() {
         chip.querySelector('.chip-play').onclick = (e) => {
           e.stopPropagation();
           previewVoice(id, e.target);
+        };
+
+        chip.querySelector('.chip-star').onclick = (e) => {
+          e.stopPropagation();
+          toggleFavorite(id);
         };
 
         row.appendChild(chip);
@@ -2038,6 +2185,80 @@ function updateVoiceCount() {
   }
 }
 
+
+// ============================================================
+// FAVORITES
+// ============================================================
+const FAV_KEY = 'voicekit_favorites';
+
+function loadFavorites() {
+  try {
+    return JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveFavorites(favs) {
+  localStorage.setItem(FAV_KEY, JSON.stringify(favs));
+}
+
+let favorites = loadFavorites();
+
+function isFavorite(id) {
+  return favorites.includes(id);
+}
+
+function toggleFavorite(id) {
+  if (isFavorite(id)) {
+    favorites = favorites.filter(f => f !== id);
+  } else {
+    favorites.push(id);
+  }
+  saveFavorites(favorites);
+  updateFavoriteUI(id);
+  updateFavoriteCount();
+}
+
+function updateFavoriteUI(id) {
+  document.querySelectorAll('.voice-chip').forEach(chip => {
+    if (chip.dataset.id === id) {
+      const star = chip.querySelector('.chip-star');
+      const isFav = isFavorite(id);
+      chip.classList.toggle('favorited', isFav);
+      if (star) {
+        star.textContent = isFav ? '★' : '☆';
+        star.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+      }
+    }
+  });
+}
+
+function updateFavoriteCount() {
+  const badge = document.getElementById('favCountBadge');
+  if (badge) {
+    if (favorites.length > 0) {
+      badge.textContent = favorites.length;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function applyFavoritesToAllChips() {
+  document.querySelectorAll('.voice-chip').forEach(chip => {
+    const id = chip.dataset.id;
+    const isFav = isFavorite(id);
+    chip.classList.toggle('favorited', isFav);
+    const star = chip.querySelector('.chip-star');
+    if (star) {
+      star.textContent = isFav ? '★' : '☆';
+      star.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+    }
+  });
+}
+
 // ============================================================
 // FILTERS
 // ============================================================
@@ -2065,7 +2286,9 @@ function applyFilters() {
     const matchesSearch = !currentSearch || id.includes(currentSearch) || name.includes(currentSearch);
 
     let matchesFilter = true;
-    if (currentFilter === 'male')   matchesFilter = gender === 'male';
+    if (currentFilter === 'favorites') {
+      matchesFilter = isFavorite(id);
+    } else if (currentFilter === 'male')   matchesFilter = gender === 'male';
     else if (currentFilter === 'female') matchesFilter = gender === 'female';
     else if (currentFilter !== 'all') matchesFilter = lang === currentFilter;
 
