@@ -874,7 +874,7 @@
   <h3>API — Use it in your app</h3>
 
   <div class="api-label"><strong>POST /speak</strong> — generate speech</div>
-  <code>curl -X POST https://voicekit-api.vercel.app/speak \
+  <code>curl -X POST https://voicekit-prod.vercel.app/speak \
   -H "Content-Type: application/json" \
   -d '{"text":"Listen closely. You can barely tell this is not me talking.","voice":"am_adam","speed":1.0}' \
   -o voice.wav</code>
@@ -882,7 +882,7 @@
   <div class="api-label"><strong>Python</strong></div>
   <code>import requests
 
-r = requests.post("https://voicekit-api.vercel.app/speak", json={
+r = requests.post("https://voicekit-prod.vercel.app/speak", json={
     "text": "Listen closely. You can barely tell this is not me talking.",
     "voice": "am_adam",
     "speed": 1.0,
@@ -890,7 +890,7 @@ r = requests.post("https://voicekit-api.vercel.app/speak", json={
 open("voice.wav", "wb").write(r.content)</code>
 
   <div class="api-label"><strong>JavaScript</strong></div>
-  <code>const res = await fetch("https://voicekit-api.vercel.app/speak", {
+  <code>const res = await fetch("https://voicekit-prod.vercel.app/speak", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -910,7 +910,7 @@ new Audio(URL.createObjectURL(blob)).play();</code>
 } | ConvertTo-Json
 
 Invoke-WebRequest -Method Post `
-  -Uri "https://voicekit-api.vercel.app/speak" `
+  -Uri "https://voicekit-prod.vercel.app/speak" `
   -ContentType "application/json" `
   -Body $body `
   -OutFile "voice.wav"
@@ -937,7 +937,7 @@ Start-Process "voice.wav"</code>
 // ============================================================
 // CONFIG
 // ============================================================
-const API_URL = "https://voicekit-api.vercel.app";
+const API_URL = "";
 
 // ============================================================
 // ELEMENTS
@@ -982,13 +982,15 @@ async function speak() {
     return;
   }
 
-  const voice = selectedVoiceId || voiceEl.value || 'am_adam';
+  const voice = (typeof selectedVoiceId !== 'undefined' && selectedVoiceId)
+                || voiceEl.value
+                || 'am_adam';
   const speed = parseFloat(speedEl.value);
 
   speakBtn.disabled = true;
-  speakBtn.textContent = 'Generating...';
+  speakBtn.textContent = '⏳ Generating...';
   speakBtn.classList.add('pulse');
-  setStatus('Sending to VoiceKit API...', 'busy');
+  setStatus('Sending to VoiceKit...', 'busy');
 
   const t0 = performance.now();
 
@@ -1012,7 +1014,7 @@ async function speak() {
     await player.play().catch(() => {});
 
     const ms = Math.round(performance.now() - t0);
-    setStatus(`Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
+    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
 
     history.unshift({ text, voice, speed, blobUrl, ts: Date.now(), ms, size: blob.size });
     if (history.length > 20) history.pop();

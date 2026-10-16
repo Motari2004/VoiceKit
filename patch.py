@@ -1,19 +1,14 @@
 """
-Patch templates/index.html to:
-  - point at voicekit-prod.vercel.app
-  - call /speak instead of the old Gradio endpoints
-  - use relative URLs (same origin)
+VoiceKit — Full UI Redesign
+Replaces templates/index.html with a professional, modern interface.
+Backs up the old file first.
 """
 
 import os
-import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 HTML = os.path.join(BASE, "templates", "index.html")
-
-# Since the API and UI share the same domain, use an empty string.
-API_URL = ""
 
 
 def backup(path):
@@ -22,120 +17,1185 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-def patch():
-    print("=" * 60)
-    print(" VoiceKit index.html Patch")
-    print("=" * 60)
+NEW_HTML = r'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoiceKit — Text to Speech</title>
+<meta name="description" content="Natural text-to-speech with 54 voices. Free, fast, offline.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
 
-    if not os.path.exists(HTML):
-        print(f"ERROR: {HTML} not found")
-        return
+<style>
+  :root {
+    --bg-0: #050508;
+    --bg-1: #0a0d16;
+    --bg-2: #12172a;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-2: rgba(255, 255, 255, 0.05);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-2: rgba(255, 255, 255, 0.14);
 
-    print(f"  target: {os.path.relpath(HTML, BASE)}")
-    backup(HTML)
+    --cyan: #22d3ee;
+    --purple: #8b5cf6;
+    --pink: #ec4899;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
 
-    with open(HTML, "r", encoding="utf-8") as f:
-        src = f.read()
+    --text: #e8eaed;
+    --text-2: #9ca3af;
+    --text-3: #6b7280;
 
-    original = src
-    changes = []
-
-    # ---------- 1) Replace URL constant ----------
-    # Anything that was a SPACE_URL or an old Vercel URL becomes API_URL = ""
-    for old in [
-        'const SPACE_URL = "https://motari-txt2speech.hf.space";',
-        'const API_URL = "https://voicekit-api.vercel.app";',
-        'const API_URL = "https://voicekit-two.vercel.app";',
-    ]:
-        if old in src:
-            src = src.replace(old, 'const API_URL = "";')
-            changes.append("URL constant")
-            break
-
-    # If no constant matched, insert one before the first const
-    if 'const API_URL' not in src and 'const SPACE_URL' not in src:
-        # Try to find a good insertion point
-        marker = "// ============================================================\n// ELEMENTS"
-        if marker in src:
-            src = src.replace(
-                marker,
-                '// ============================================================\n'
-                '// CONFIG\n'
-                '// ============================================================\n'
-                'const API_URL = "";\n\n'
-                + marker,
-                1
-            )
-            changes.append("URL constant inserted")
-
-    # ---------- 2) Replace the entire speak() function ----------
-    new_speak = '''async function speak() {
-  const text = textEl.value.trim();
-  if (!text) {
-    setStatus('Type something first.', 'err');
-    return;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --transition: all 0.18s ease;
   }
 
-  const voice = (typeof selectedVoiceId !== 'undefined' && selectedVoiceId)
-                || voiceEl.value
-                || 'am_adam';
-  const speed = parseFloat(speedEl.value);
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  speakBtn.disabled = true;
-  speakBtn.textContent = '⏳ Generating...';
-  speakBtn.classList.add('pulse');
-  setStatus('Sending to VoiceKit...', 'busy');
+  html, body {
+    min-height: 100vh;
+    background: var(--bg-0);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
 
-  const t0 = performance.now();
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 30%, rgba(139, 92, 246, 0.1), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 10% 60%, rgba(236, 72, 153, 0.06), transparent 60%),
+      var(--bg-0);
+    padding: 32px 20px 64px;
+  }
 
+  /* ---------- LAYOUT ---------- */
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  /* ---------- HEADER ---------- */
+  .header {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .logo-mark {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 20px rgba(34, 211, 238, 0.3);
+  }
+
+  h1 {
+    font-size: 2.1rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #fff 20%, var(--cyan) 70%, var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tagline {
+    color: var(--text-2);
+    font-size: 0.92rem;
+    font-weight: 400;
+    margin-top: 4px;
+  }
+
+  .badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 20px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--cyan);
+    text-transform: uppercase;
+  }
+
+  .badge::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    background: var(--cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--cyan);
+  }
+
+  /* ---------- CARD ---------- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* ---------- INPUT ---------- */
+  .input-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .char-count {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .char-count.warn { color: var(--amber); }
+  .char-count.over { color: var(--red); }
+
+  textarea {
+    width: 100%;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 110px;
+    outline: none;
+    transition: var(--transition);
+    line-height: 1.55;
+  }
+
+  textarea:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  textarea::placeholder { color: var(--text-3); }
+
+  /* ---------- QUICK PHRASES ---------- */
+  .quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .quick button {
+    padding: 5px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text-2);
+    font-size: 0.72rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .quick button:hover {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.3);
+    color: var(--cyan);
+  }
+
+  /* ---------- VOICE PICKER ---------- */
+  .voice-picker {
+    margin-top: 6px;
+  }
+
+  .search-wrap {
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--text-3);
+    pointer-events: none;
+  }
+
+  #voiceSearch {
+    width: 100%;
+    padding: 10px 14px 10px 36px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border-2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: inherit;
+    outline: none;
+    transition: var(--transition);
+  }
+
+  #voiceSearch:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+  }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 12px;
+  }
+
+  .filter-chip {
+    padding: 5px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text-2);
+    font-size: 0.72rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .filter-chip:hover {
+    background: rgba(34, 211, 238, 0.08);
+    color: var(--text);
+  }
+
+  .filter-chip.active {
+    background: rgba(34, 211, 238, 0.15);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .voice-count {
+    font-size: 0.7rem;
+    color: var(--text-3);
+    text-align: right;
+    margin-bottom: 8px;
+  }
+
+  .voice-list {
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-bottom: 12px;
+  }
+
+  .voice-list::-webkit-scrollbar { width: 6px; }
+  .voice-list::-webkit-scrollbar-track { background: transparent; }
+  .voice-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+  .voice-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .voice-lang { margin-bottom: 16px; }
+  .voice-lang.hidden { display: none; }
+
+  .voice-lang-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.12);
+  }
+
+  .voice-lang-header::before {
+    content: "";
+    width: 3px;
+    height: 12px;
+    background: var(--cyan);
+    border-radius: 2px;
+  }
+
+  .voice-gender-label {
+    font-size: 0.62rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 10px 0 6px;
+    font-weight: 600;
+  }
+
+  .voice-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 6px;
+  }
+
+  .voice-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .voice-chip.hidden { display: none; }
+
+  .voice-chip:hover {
+    background: rgba(34, 211, 238, 0.06);
+    border-color: rgba(34, 211, 238, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .voice-chip.selected {
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.12));
+    border-color: var(--cyan);
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.15);
+  }
+
+  .voice-chip.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 0.6rem;
+    color: var(--cyan);
+    font-weight: 700;
+  }
+
+  .chip-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .chip-name {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chip-desc {
+    display: block;
+    font-size: 0.63rem;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+
+  .chip-play {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(34, 211, 238, 0.12);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 50%;
+    color: var(--cyan);
+    cursor: pointer;
+    font-size: 0.5rem;
+    padding: 0;
+    transition: var(--transition);
+  }
+
+  .chip-play:hover {
+    background: rgba(34, 211, 238, 0.3);
+    transform: scale(1.1);
+  }
+
+  .chip-play.playing {
+    background: var(--cyan);
+    color: #000;
+  }
+
+  /* ---------- SELECTED BAR ---------- */
+  .selected-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(139, 92, 246, 0.08));
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+  }
+
+  .selected-bar .label {
+    font-size: 0.65rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .selected-bar .name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .selected-bar .id {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.72rem;
+    color: var(--cyan);
+  }
+
+  /* ---------- CONTROLS ---------- */
+  .controls-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: center;
+    margin-top: 18px;
+  }
+
+  .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .speed-control label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  input[type=range] {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--surface-2);
+    border-radius: 2px;
+    outline: none;
+    accent-color: var(--cyan);
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--cyan);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
+    transition: var(--transition);
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.25);
+  }
+
+  .speed-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--cyan);
+    min-width: 50px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- SPEAK BUTTON ---------- */
+  .speak-btn {
+    width: 100%;
+    padding: 16px;
+    margin-top: 18px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #0a0a0f;
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: inherit;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25);
+  }
+
+  .speak-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 28px rgba(34, 211, 238, 0.35);
+  }
+
+  .speak-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .speak-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .speak-btn.generating {
+    animation: pulse-btn 1.5s infinite;
+  }
+
+  @keyframes pulse-btn {
+    0%, 100% { box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25); }
+    50% { box-shadow: 0 4px 30px rgba(34, 211, 238, 0.5); }
+  }
+
+  /* ---------- STATUS ---------- */
+  .status {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    color: var(--text-2);
+    font-family: 'SF Mono', Consolas, monospace;
+    min-height: 20px;
+    transition: var(--transition);
+  }
+
+  .status.ok { color: var(--green); background: rgba(52, 211, 153, 0.08); }
+  .status.err { color: var(--red); background: rgba(248, 113, 113, 0.08); }
+  .status.busy { color: var(--amber); background: rgba(251, 191, 36, 0.08); }
+
+  /* ---------- AUDIO PLAYER ---------- */
+  audio {
+    width: 100%;
+    margin-top: 14px;
+    display: none;
+    border-radius: var(--radius-sm);
+  }
+
+  audio.show { display: block; }
+
+  /* ---------- HISTORY ---------- */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+  }
+
+  .history-item:hover { background: rgba(0, 0, 0, 0.35); }
+
+  .history-item .info { flex: 1; min-width: 0; }
+
+  .history-item .text {
+    font-size: 0.8rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .history-item .meta {
+    font-size: 0.68rem;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+
+  .history-item button {
+    padding: 5px 12px;
+    background: rgba(34, 211, 238, 0.12);
+    border: none;
+    border-radius: 6px;
+    color: var(--cyan);
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: var(--transition);
+    flex-shrink: 0;
+  }
+
+  .history-item button:hover {
+    background: rgba(34, 211, 238, 0.25);
+  }
+
+  .empty {
+    color: var(--text-3);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 16px;
+    font-style: italic;
+  }
+
+  /* ---------- API SECTION ---------- */
+  .api-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 4px 0;
+    user-select: none;
+  }
+
+  .api-toggle h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .api-toggle-icon {
+    color: var(--text-3);
+    font-size: 0.75rem;
+    transition: transform 0.2s;
+  }
+
+  .api-toggle.open .api-toggle-icon {
+    transform: rotate(180deg);
+  }
+
+  .api-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .api-body.open {
+    max-height: 3000px;
+    margin-top: 14px;
+  }
+
+  .api-block { margin-bottom: 14px; }
+
+  .api-label {
+    font-size: 0.72rem;
+    color: var(--text-2);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  .api-label strong { color: var(--text); font-weight: 700; }
+
+  .api-code {
+    display: block;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: #a5f3fc;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.72rem;
+    overflow-x: auto;
+    white-space: pre;
+    line-height: 1.55;
+  }
+
+  .api-endpoints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .endpoint {
+    padding: 4px 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text-2);
+  }
+
+  .endpoint .method {
+    font-weight: 700;
+    color: var(--cyan);
+    margin-right: 6px;
+  }
+
+  /* ---------- FOOTER ---------- */
+  .footer {
+    text-align: center;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--text-3);
+  }
+
+  .footer a {
+    color: var(--text-2);
+    text-decoration: none;
+    transition: var(--transition);
+  }
+
+  .footer a:hover { color: var(--cyan); }
+
+  .footer .sep { margin: 0 8px; opacity: 0.4; }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 600px) {
+    body { padding: 20px 14px 48px; }
+    h1 { font-size: 1.65rem; }
+    .card { padding: 18px; }
+    .voice-chips { grid-template-columns: 1fr; }
+    .controls-row { grid-template-columns: 1fr; }
+    .selected-bar { flex-wrap: wrap; gap: 6px; }
+  }
+
+  /* ---------- ANIMATIONS ---------- */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card {
+    animation: fadeIn 0.4s ease-out both;
+  }
+  .card:nth-child(2) { animation-delay: 0.05s; }
+  .card:nth-child(3) { animation-delay: 0.1s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ---------- HEADER ---------- -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">🎙️</div>
+      <h1>VoiceKit</h1>
+    </div>
+    <p class="tagline">Your voice, in code.</p>
+    <div class="badges">
+      <span class="badge">54 voices</span>
+      <span class="badge">9 languages</span>
+      <span class="badge">Free</span>
+    </div>
+  </div>
+
+  <!-- ---------- INPUT CARD ---------- -->
+  <div class="card">
+    <div class="input-header">
+      <span class="label">Text to speak</span>
+      <span class="char-count" id="charCount">0 / 800</span>
+    </div>
+
+    <textarea id="text" maxlength="800" placeholder="Type anything up to 800 characters...">Listen closely. You can barely tell this is not me talking.</textarea>
+
+    <div class="quick">
+      <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
+      <button data-p="Hello world, this is my voice.">Hello world</button>
+      <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
+      <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
+      <button data-p="The night is young and the bass is deep.">Night vibe</button>
+    </div>
+  </div>
+
+  <!-- ---------- VOICE CARD ---------- -->
+  <div class="card">
+    <div class="input-header">
+      <span class="label">Choose voice</span>
+    </div>
+
+    <div class="voice-picker">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input type="text" id="voiceSearch" placeholder="Search voices by name or ID..." autocomplete="off">
+      </div>
+
+      <div class="filter-row" id="voiceFilter">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="male">Male</button>
+        <button class="filter-chip" data-filter="female">Female</button>
+        <button class="filter-chip" data-filter="American English">American</button>
+        <button class="filter-chip" data-filter="British English">British</button>
+        <button class="filter-chip" data-filter="Japanese">Japanese</button>
+        <button class="filter-chip" data-filter="Mandarin Chinese">Mandarin</button>
+        <button class="filter-chip" data-filter="Spanish">Spanish</button>
+        <button class="filter-chip" data-filter="French">French</button>
+        <button class="filter-chip" data-filter="Hindi">Hindi</button>
+        <button class="filter-chip" data-filter="Italian">Italian</button>
+        <button class="filter-chip" data-filter="Portuguese">Portuguese</button>
+      </div>
+
+      <div class="voice-count" id="voiceCount"></div>
+      <div class="voice-list" id="voiceList">
+        <div class="empty">Loading voices...</div>
+      </div>
+
+      <div class="selected-bar">
+        <span class="label">Selected</span>
+        <span class="name" id="selectedName">Adam</span>
+        <span class="id" id="selectedId">am_adam</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- CONTROLS CARD ---------- -->
+  <div class="card">
+    <div class="controls-row">
+      <div class="speed-control">
+        <label>Speed</label>
+        <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
+      </div>
+      <div class="speed-value" id="speedVal">1.00×</div>
+    </div>
+
+    <button class="speak-btn" id="speakBtn">🔊 Speak</button>
+
+    <div class="status" id="status">Ready. Pick a voice and hit Speak (Ctrl+Enter).</div>
+
+    <audio id="player" controls></audio>
+  </div>
+
+  <!-- ---------- HISTORY CARD ---------- -->
+  <div class="card">
+    <div class="input-header">
+      <span class="label">Recent generations</span>
+    </div>
+    <div id="history">
+      <div class="empty">None yet.</div>
+    </div>
+  </div>
+
+  <!-- ---------- API CARD ---------- -->
+  <div class="card">
+    <div class="api-toggle" id="apiToggle">
+      <h3>⚡ API — Use it in your app</h3>
+      <span class="api-toggle-icon">▼</span>
+    </div>
+
+    <div class="api-body" id="apiBody">
+      <div class="api-block">
+        <div class="api-label"><strong>POST /speak</strong> — generate speech</div>
+        <code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Listen closely. You can barely tell this is not me talking.","voice":"am_adam","speed":1.0}' \
+  -o voice.wav</code>
+      </div>
+
+      <div class="api-block">
+        <div class="api-label"><strong>Python</strong></div>
+        <code class="api-code">import requests
+
+r = requests.post("https://voicekit-prod.vercel.app/speak", json={
+    "text": "Listen closely. You can barely tell this is not me talking.",
+    "voice": "am_adam",
+    "speed": 1.0,
+})
+open("voice.wav", "wb").write(r.content)</code>
+      </div>
+
+      <div class="api-block">
+        <div class="api-label"><strong>JavaScript</strong></div>
+        <code class="api-code">const res = await fetch("https://voicekit-prod.vercel.app/speak", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    text: "Listen closely. You can barely tell this is not me talking.",
+    voice: "am_adam",
+    speed: 1.0
+  })
+});
+const blob = await res.blob();
+new Audio(URL.createObjectURL(blob)).play();</code>
+      </div>
+
+      <div class="api-endpoints">
+        <span class="endpoint"><span class="method">POST</span>/speak</span>
+        <span class="endpoint"><span class="method">GET</span>/voices</span>
+        <span class="endpoint"><span class="method">GET</span>/voices/catalog</span>
+        <span class="endpoint"><span class="method">GET</span>/health</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- FOOTER ---------- -->
+  <div class="footer">
+    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank">Space</a>
+    <span class="sep">·</span>
+    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank">Kokoro-82M</a>
+    <span class="sep">·</span>
+    <a href="https://voicekit-prod.vercel.app/voices" target="_blank">API</a>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const API_URL = "";   // same origin — Flask serves both UI and API
+
+// ============================================================
+// STATE
+// ============================================================
+let selectedVoiceId = "am_adam";
+let selectedVoiceName = "Adam";
+let currentFilter = "all";
+let currentSearch = "";
+let voiceCatalog = null;
+const history = [];
+
+// ============================================================
+// ELEMENTS
+// ============================================================
+const textEl       = document.getElementById('text');
+const speedEl      = document.getElementById('speed');
+const speedVal     = document.getElementById('speedVal');
+const speakBtn     = document.getElementById('speakBtn');
+const statusEl     = document.getElementById('status');
+const player       = document.getElementById('player');
+const historyEl    = document.getElementById('history');
+const charCount    = document.getElementById('charCount');
+const voiceList    = document.getElementById('voiceList');
+const voiceSearch  = document.getElementById('voiceSearch');
+const voiceFilter  = document.getElementById('voiceFilter');
+const voiceCount   = document.getElementById('voiceCount');
+const selectedName = document.getElementById('selectedName');
+const selectedId   = document.getElementById('selectedId');
+const apiToggle    = document.getElementById('apiToggle');
+const apiBody      = document.getElementById('apiBody');
+
+// ============================================================
+// HELPERS
+// ============================================================
+function setStatus(msg, cls) {
+  statusEl.className = 'status ' + (cls || '');
+  statusEl.textContent = msg;
+}
+
+speedEl.oninput = () => {
+  speedVal.textContent = parseFloat(speedEl.value).toFixed(2) + '×';
+};
+
+textEl.oninput = () => {
+  const len = textEl.value.length;
+  charCount.textContent = len + ' / 800';
+  charCount.className = 'char-count';
+  if (len > 700) charCount.classList.add('warn');
+  if (len >= 800) charCount.classList.add('over');
+};
+
+// Trigger initial count
+textEl.oninput();
+
+document.querySelectorAll('.quick button').forEach(btn => {
+  btn.onclick = () => {
+    textEl.value = btn.dataset.p;
+    textEl.oninput();
+    textEl.focus();
+  };
+});
+
+// ============================================================
+// API TOGGLE
+// ============================================================
+apiToggle.onclick = () => {
+  apiToggle.classList.toggle('open');
+  apiBody.classList.toggle('open');
+};
+
+// ============================================================
+// LOAD VOICES FROM API
+// ============================================================
+async function loadVoices() {
   try {
-    const res = await fetch(`${API_URL}/speak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, speed })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Server error ${res.status}`);
-    }
-
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    player.src = blobUrl;
-    player.classList.add('show');
-    await player.play().catch(() => {});
-
-    const ms = Math.round(performance.now() - t0);
-    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
-
-    history.unshift({ text, voice, speed, blobUrl, ts: Date.now(), ms, size: blob.size });
-    if (history.length > 20) history.pop();
-    renderHistory();
-
+    const res = await fetch('/voices/catalog');
+    if (!res.ok) throw new Error('Failed to load catalog');
+    voiceCatalog = await res.json();
+    renderVoicePicker();
+    updateVoiceCount();
   } catch (e) {
-    console.error(e);
-    setStatus('Error: ' + e.message, 'err');
-  } finally {
-    speakBtn.disabled = false;
-    speakBtn.textContent = '🔊 Speak';
-    speakBtn.classList.remove('pulse');
+    voiceList.innerHTML = '<div class="empty" style="color:#f87171;">Failed to load voices: ' + e.message + '</div>';
   }
 }
-'''
 
-    speak_pattern = re.compile(
-        r'async function speak\(\)\s*\{.*?\n\}\n',
-        re.DOTALL
-    )
-    match = speak_pattern.search(src)
-    if match:
-        src = src[:match.start()] + new_speak + src[match.end():]
-        changes.append("speak() rewritten")
+function renderVoicePicker() {
+  if (!voiceCatalog) return;
+  voiceList.innerHTML = '';
 
-    # ---------- 3) Replace previewVoice() to use /speak ----------
-    new_preview = '''async function previewVoice(voiceId, btn) {
+  const langOrder = [
+    'American English', 'British English', 'Japanese', 'Mandarin Chinese',
+    'Spanish', 'French', 'Hindi', 'Italian', 'Portuguese'
+  ];
+
+  langOrder.forEach(lang => {
+    if (!voiceCatalog[lang]) return;
+    const groups = voiceCatalog[lang];
+
+    const block = document.createElement('div');
+    block.className = 'voice-lang';
+    block.dataset.lang = lang;
+    block.innerHTML = '<div class="voice-lang-header">' + lang + '</div>';
+
+    ['Female', 'Male'].forEach(gender => {
+      const voices = groups[gender];
+      if (!voices || voices.length === 0) return;
+
+      const row = document.createElement('div');
+      row.className = 'voice-chips';
+      row.innerHTML = '<div class="voice-gender-label" style="grid-column:1/-1;">' + gender + '</div>';
+
+      voices.forEach(v => {
+        const [id, name, desc] = v;
+        const chip = document.createElement('div');
+        const isSelected = id === selectedVoiceId;
+        chip.className = 'voice-chip' + (isSelected ? ' selected' : '');
+        chip.dataset.id = id;
+        chip.dataset.name = name.toLowerCase();
+        chip.dataset.lang = lang;
+        chip.dataset.gender = gender.toLowerCase();
+        chip.innerHTML =
+          '<div class="chip-content">' +
+            '<span class="chip-name">' + name + '</span>' +
+            '<span class="chip-desc">' + desc + '</span>' +
+          '</div>' +
+          '<button class="chip-play" data-id="' + id + '" title="Preview">▶</button>';
+
+        chip.onclick = (e) => {
+          if (e.target.closest('.chip-play')) return;
+          selectVoice(id, name, chip);
+        };
+
+        chip.querySelector('.chip-play').onclick = (e) => {
+          e.stopPropagation();
+          previewVoice(id, e.target);
+        };
+
+        row.appendChild(chip);
+      });
+
+      block.appendChild(row);
+    });
+
+    voiceList.appendChild(block);
+  });
+}
+
+function selectVoice(id, name, chip) {
+  selectedVoiceId = id;
+  selectedVoiceName = name;
+  selectedName.textContent = name;
+  selectedId.textContent = id;
+
+  document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
+  chip.classList.add('selected');
+}
+
+function updateVoiceCount() {
+  const visible = document.querySelectorAll('.voice-chip:not(.hidden)').length;
+  voiceCount.textContent = visible + ' voice' + (visible === 1 ? '' : 's');
+}
+
+// ============================================================
+// SEARCH + FILTER
+// ============================================================
+voiceSearch.oninput = (e) => {
+  currentSearch = e.target.value.toLowerCase().trim();
+  applyFilters();
+};
+
+voiceFilter.onclick = (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  voiceFilter.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  currentFilter = chip.dataset.filter;
+  applyFilters();
+};
+
+function applyFilters() {
+  document.querySelectorAll('.voice-chip').forEach(chip => {
+    const id     = chip.dataset.id.toLowerCase();
+    const name   = chip.dataset.name;
+    const lang   = chip.dataset.lang;
+    const gender = chip.dataset.gender;
+
+    const matchesSearch = !currentSearch || id.includes(currentSearch) || name.includes(currentSearch);
+
+    let matchesFilter = true;
+    if (currentFilter === 'male')   matchesFilter = gender === 'male';
+    else if (currentFilter === 'female') matchesFilter = gender === 'female';
+    else if (currentFilter !== 'all') matchesFilter = lang === currentFilter;
+
+    chip.classList.toggle('hidden', !(matchesSearch && matchesFilter));
+  });
+
+  document.querySelectorAll('.voice-lang').forEach(block => {
+    const any = block.querySelectorAll('.voice-chip:not(.hidden)').length;
+    block.classList.toggle('hidden', any === 0);
+  });
+
+  updateVoiceCount();
+}
+
+// ============================================================
+// PREVIEW
+// ============================================================
+async function previewVoice(voiceId, btn) {
   if (btn) {
     btn.textContent = '⏳';
     btn.classList.add('playing');
@@ -153,7 +1213,6 @@ def patch():
     });
 
     if (!res.ok) throw new Error('Preview failed');
-
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -166,8 +1225,8 @@ def patch():
         btn.classList.remove('playing');
       };
     }
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error(e);
     if (btn) {
       btn.textContent = '✗';
       setTimeout(() => {
@@ -177,118 +1236,150 @@ def patch():
     }
   }
 }
-'''
-    preview_pattern = re.compile(
-        r'async function previewVoice\(.*?\n\}\n',
-        re.DOTALL
-    )
-    match = preview_pattern.search(src)
-    if match:
-        src = src[:match.start()] + new_preview + src[match.end():]
-        changes.append("previewVoice() rewritten")
 
-    # ---------- 4) Update API docs section ----------
-    new_api_section = '''<div class="api-section">
-  <h3>API — Use it in your app</h3>
+// ============================================================
+// SPEAK
+// ============================================================
+async function speak() {
+  const text = textEl.value.trim();
+  if (!text) { setStatus('Type something first.', 'err'); return; }
 
-  <div class="api-label"><strong>POST /speak</strong> — generate speech</div>
-  <code>curl -X POST https://voicekit-prod.vercel.app/speak \\
-  -H "Content-Type: application/json" \\
-  -d '{"text":"Listen closely. You can barely tell this is not me talking.","voice":"am_adam","speed":1.0}' \\
-  -o voice.wav</code>
+  const speed = parseFloat(speedEl.value);
 
-  <div class="api-label"><strong>Python</strong></div>
-  <code>import requests
+  speakBtn.disabled = true;
+  speakBtn.textContent = '⏳ Generating...';
+  speakBtn.classList.add('generating');
+  setStatus('Generating...', 'busy');
 
-r = requests.post("https://voicekit-prod.vercel.app/speak", json={
-    "text": "Listen closely. You can barely tell this is not me talking.",
-    "voice": "am_adam",
-    "speed": 1.0,
-})
-open("voice.wav", "wb").write(r.content)</code>
+  const t0 = performance.now();
 
-  <div class="api-label"><strong>JavaScript</strong></div>
-  <code>const res = await fetch("https://voicekit-prod.vercel.app/speak", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    text: "Listen closely. You can barely tell this is not me talking.",
-    voice: "am_adam",
-    speed: 1.0
-  })
+  try {
+    const res = await fetch(`${API_URL}/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: selectedVoiceId, speed })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Server error ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+
+    player.src = url;
+    player.classList.add('show');
+    await player.play().catch(() => {});
+
+    const ms = Math.round(performance.now() - t0);
+    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
+
+    history.unshift({ text, voice: selectedVoiceName, speed, url, ts: Date.now(), ms });
+    if (history.length > 20) history.pop();
+    renderHistory();
+  } catch (e) {
+    console.error(e);
+    setStatus('Error: ' + e.message, 'err');
+  } finally {
+    speakBtn.disabled = false;
+    speakBtn.textContent = '🔊 Speak';
+    speakBtn.classList.remove('generating');
+  }
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory() {
+  if (!history.length) {
+    historyEl.innerHTML = '<div class="empty">None yet.</div>';
+    return;
+  }
+  historyEl.innerHTML = '';
+  history.forEach(h => {
+    const ts = new Date(h.ts).toLocaleTimeString();
+    const preview = h.text.length > 70 ? h.text.substring(0, 70) + '…' : h.text;
+
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    row.innerHTML =
+      '<div class="info">' +
+        '<div class="text">' + preview.replace(/</g, '&lt;') + '</div>' +
+        '<div class="meta">' + h.voice + ' · ' + h.speed + '× · ' + ts + ' · ' + h.ms + ' ms</div>' +
+      '</div>' +
+      '<button>▶ Play</button>';
+
+    row.querySelector('button').onclick = () => {
+      player.src = h.url;
+      player.classList.add('show');
+      player.play();
+    };
+    historyEl.appendChild(row);
+  });
+}
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+textEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    speak();
+  }
 });
-const blob = await res.blob();
-new Audio(URL.createObjectURL(blob)).play();</code>
 
-  <div class="api-label"><strong>PowerShell</strong></div>
-  <code>$body = @{
-  text  = "Listen closely. You can barely tell this is not me talking."
-  voice = "am_adam"
-  speed = 1.0
-} | ConvertTo-Json
+speakBtn.onclick = speak;
 
-Invoke-WebRequest -Method Post `
-  -Uri "https://voicekit-prod.vercel.app/speak" `
-  -ContentType "application/json" `
-  -Body $body `
-  -OutFile "voice.wav"
+// ============================================================
+// INIT
+// ============================================================
+loadVoices();
+setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
+</script>
+</body>
+</html>
+'''
 
-Start-Process "voice.wav"</code>
 
-  <div class="api-label" style="margin-top:16px;">
-    <strong>Endpoints:</strong>
-    <span style="color:#22d3ee;">POST /speak</span> ·
-    <span style="color:#22d3ee;">GET /voices</span> ·
-    <span style="color:#22d3ee;">GET /health</span>
-  </div>
-</div>'''
+def patch():
+    print("=" * 60)
+    print(" VoiceKit UI Redesign")
+    print("=" * 60)
 
-    if '<div class="api-section">' in src:
-        start = src.find('<div class="api-section">')
-        depth = 0
-        i = start
-        end = -1
-        while i < len(src):
-            if src[i:i+4] == '<div':
-                depth += 1
-            elif src[i:i+6] == '</div>':
-                depth -= 1
-                if depth == 0:
-                    end = i + 6
-                    break
-            i += 1
-        if end > start:
-            src = src[:start] + new_api_section + src[end:]
-            changes.append("api-section rewritten")
-
-    # ---------- 5) Default text (if still the old one) ----------
-    if 'I am the real ninja. Reggae in the valley, one drop at a time.' in src:
-        src = src.replace(
-            'I am the real ninja. Reggae in the valley, one drop at a time.',
-            'Listen closely. You can barely tell this is not me talking.'
-        )
-        changes.append("default text")
-
-    if src == original:
-        print("  No changes made.")
+    if not os.path.exists(HTML):
+        print(f"ERROR: {HTML} not found")
         return
 
-    with open(HTML, "w", encoding="utf-8") as f:
-        f.write(src)
+    backup(HTML)
 
-    print(f"  [OK] Applied: {', '.join(changes)}")
+    with open(HTML, "w", encoding="utf-8") as f:
+        f.write(NEW_HTML)
+
+    print(f"  wrote -> {os.path.relpath(HTML, BASE)} ({len(NEW_HTML):,} chars)")
     print()
     print("=" * 60)
     print(" DONE")
     print("=" * 60)
     print()
-    print(f" API_URL = \"\" (same origin — voicekit-prod.vercel.app)")
+    print(" What's new in this design:")
+    print("   • Modern dark UI with glass cards and subtle gradients")
+    print("   • Inter font stack for cleaner typography")
+    print("   • Animated entrance for each card")
+    print("   • Character counter with warn/over states")
+    print("   • SVG search icon in the voice search box")
+    print("   • Voice grid with name + description on each chip")
+    print("   • Selected voice bar at the bottom of the picker")
+    print("   • Collapsible API docs section")
+    print("   • Endpoint chips (POST /speak, GET /voices, etc.)")
+    print("   • Better mobile layout")
+    print("   • All 54 voices grouped by language and gender")
     print()
-    print(" Next:")
-    print("   cd C:\\Users\\PC\\Desktop\\voicekit")
+    print(" Deploy:")
+    print("   cd C:\\Users\\PC\\Desktop\\VoiceKit")
     print("   vercel --prod")
     print()
-    print(f" Backup saved: {os.path.relpath(HTML, BASE)}.bak")
+    print(f" Backup: {os.path.relpath(HTML, BASE)}.bak")
     print("=" * 60)
 
 
