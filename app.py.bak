@@ -167,12 +167,40 @@ def add_cors_headers(response):
 
 
 # ============================================================
-# DATABASE
+# DATABASE — Neon Postgres
 # ============================================================
+import urllib.parse
+
+def _normalize_db_url(url):
+    """Strip psycopg-incompatible query params (channel_binding, etc.)."""
+    if not url:
+        return url
+    # Remove channel_binding — psycopg doesn't support it
+    url = re.sub(r'[?&]channel_binding=[^&]*', '', url)
+    # Ensure sslmode=require for Neon
+    if 'sslmode=' not in url:
+        sep = '&' if '?' in url else '?'
+        url = f"{url}{sep}sslmode=require"
+    # Clean up doubled separators
+    url = re.sub(r'[?&]+$', '', url)
+    url = re.sub(r'[?&]{2,}', '&', url)
+    return url
+
+
 def get_db():
+    """Open a new connection to Neon with keepalives enabled."""
     if not DATABASE_URL:
         return None
-    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    url = _normalize_db_url(DATABASE_URL)
+    return psycopg.connect(
+        url,
+        row_factory=dict_row,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5,
+        connect_timeout=10,
+    )
 
 
 def init_db():
@@ -217,6 +245,36 @@ def init_db():
             print(f"[db] init failed: {e}")
         finally:
             _db_initialized = True
+
+
+def db_execute(query, params=None, fetch=False, fetch_one=False):
+    """
+    Execute a query with automatic retry on stale connection.
+    Neon's serverless pooler may close idle connections.
+    """
+    for attempt in range(2):
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(query, params or ())
+                    if fetch:
+                        result = cur.fetchall()
+                    elif fetch_one:
+                        result = cur.fetchone()
+                    else:
+                        result = None
+                conn.commit()
+                return result
+        except psycopg.OperationalError as e:
+            # Connection dropped — retry once
+            print(f"[db] connection error (attempt {attempt+1}): {e}")
+            if attempt == 0:
+                continue
+            raise
+        except Exception:
+            raise
+    return None
+
 
 
 # ============================================================
@@ -356,20 +414,16 @@ def speak():
 @app.route("/favorites", methods=["GET"])
 def get_favorites():
     device_id = (request.args.get("device") or "").strip()
-    if not device_id:
-        return jsonify({"favorites": []})
-    if not DATABASE_URL:
+    if not device_id or not DATABASE_URL:
         return jsonify({"favorites": []})
 
     try:
         init_db()
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT voice_id FROM favorites WHERE device_id = %s ORDER BY created_at",
-                    (device_id,),
-                )
-                rows = cur.fetchall()
+        rows = db_execute(
+            "SELECT voice_id FROM favorites WHERE device_id = %s ORDER BY created_at",
+            (device_id,),
+            fetch=True,
+        )
         return jsonify({"favorites": [r["voice_id"] for r in rows]})
     except Exception as e:
         print(f"[db] get favorites failed: {e}")
@@ -395,9 +449,9 @@ def save_favorites():
             return jsonify({"status": "no-db", "favorites": voice_ids})
 
         init_db()
+
         with get_db() as conn:
             with conn.cursor() as cur:
-                # Delete removed
                 if voice_ids:
                     cur.execute(
                         "DELETE FROM favorites WHERE device_id = %s AND voice_id != ALL(%s)",
@@ -406,7 +460,6 @@ def save_favorites():
                 else:
                     cur.execute("DELETE FROM favorites WHERE device_id = %s", (device_id,))
 
-                # Insert new
                 for vid in voice_ids:
                     cur.execute(
                         "INSERT INTO favorites (device_id, voice_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
@@ -425,21 +478,17 @@ def save_favorites():
 def get_history():
     device_id = (request.args.get("device") or "").strip()
     limit = int(request.args.get("limit", 30))
-    if not device_id:
-        return jsonify({"history": []})
-
-    if not DATABASE_URL:
+    if not device_id or not DATABASE_URL:
         return jsonify({"history": []})
 
     try:
         init_db()
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id, text, voice, speed, created_at FROM history WHERE device_id = %s ORDER BY created_at DESC LIMIT %s",
-                    (device_id, limit),
-                )
-                rows = cur.fetchall()
+        rows = db_execute(
+            "SELECT id, text, voice, speed, created_at FROM history "
+            "WHERE device_id = %s ORDER BY created_at DESC LIMIT %s",
+            (device_id, limit),
+            fetch=True,
+        )
 
         result = []
         for r in rows:
@@ -471,14 +520,11 @@ def delete_history():
             return jsonify({"status": "no-db"})
 
         init_db()
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM history WHERE device_id = %s", (device_id,))
-            conn.commit()
-
+        db_execute("DELETE FROM history WHERE device_id = %s", (device_id,))
         return jsonify({"status": "cleared"})
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
+
 
 
 # ============================================================

@@ -2573,12 +2573,90 @@ textEl.addEventListener('keydown', (e) => {
 
 speakBtn.onclick = speak;
 
+
+// ============================================================
+// SERVER HISTORY
+// ============================================================
+window.loadServerHistory = async function () {
+  const container = document.getElementById('history');
+  if (!container) return;
+
+  const did = (typeof DEVICE_ID !== 'undefined') ? DEVICE_ID : '';
+
+  try {
+    const res = await fetch('/history?device=' + encodeURIComponent(did) + '&limit=50');
+    const data = await res.json();
+    const items = data.history || [];
+
+    if (!items.length) {
+      container.innerHTML = '<div class="empty">Nothing here yet — try generating some speech.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    items.forEach(h => {
+      const ts = new Date(h.created_at).toLocaleString();
+      const preview = h.text.length > 100 ? h.text.substring(0, 100) + '\u2026' : h.text;
+
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      row.innerHTML =
+        '<div class="info">' +
+          '<div class="text">' + preview.replace(/</g, '&lt;') + '</div>' +
+          '<div class="meta">' + h.voice + ' \u00b7 ' + h.speed + '\u00d7 \u00b7 ' + ts + '</div>' +
+        '</div>';
+
+      const btn = document.createElement('button');
+      btn.textContent = 'Regenerate';
+      btn.onclick = () => {
+        document.getElementById('text').value = h.text;
+        document.getElementById('speed').value = h.speed;
+        document.getElementById('speedVal').textContent = h.speed.toFixed(2) + '\u00d7';
+        if (typeof selectedVoiceId !== 'undefined') selectedVoiceId = h.voice;
+        if (typeof selectedVoiceName !== 'undefined') selectedVoiceName = h.voice;
+        if (typeof updateVoiceIndicator === 'function') updateVoiceIndicator();
+        const genBtn = document.querySelector('.nav-btn[data-view="generate"]');
+        if (genBtn) genBtn.click();
+        setTimeout(() => { if (typeof speak === 'function') speak(); }, 200);
+      };
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+
+    console.log('[history] loaded', items.length, 'items');
+  } catch (e) {
+    console.warn('[history] load failed:', e);
+    container.innerHTML = '<div class="empty">Could not load history — try again.</div>';
+  }
+};
+
+window.clearServerHistory = async function () {
+  if (!confirm('Clear all history for this device?')) return;
+  const did = (typeof DEVICE_ID !== 'undefined') ? DEVICE_ID : '';
+  try {
+    await fetch('/history', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: did })
+    });
+    if (typeof loadServerHistory === 'function') loadServerHistory();
+  } catch (e) {
+    console.error('clear history failed:', e);
+  }
+};
+
 // ============================================================
 // INIT
 // ============================================================
 loadVoices();
-if (typeof loadServerHistory === 'function') { loadServerHistory(); }
 updateVoiceIndicator();
+
+// Load history after a short delay so the function is defined
+setTimeout(() => {
+  if (typeof window.loadServerHistory === 'function') {
+    window.loadServerHistory();
+  }
+}, 400);
 setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
 
 // Retry applying favorites after the chips render (catalog fetch is async)
