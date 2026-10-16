@@ -1,9 +1,6 @@
 """
-VoiceKit — one URL, two faces.
-    /              → HTML UI
-    /speak         → JSON API (WAV)
-    /voices        → JSON API
-    /health        → JSON API
+VoiceKit — Text-to-Speech API and Web UI
+Deployed on Vercel as a Python serverless function.
 """
 
 import io
@@ -14,23 +11,8 @@ import requests
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 
-UPSTREAM = "https://motari-txt2speech.hf.space"
-
-MAX_TEXT_LENGTH  = 800
-MIN_SPEED        = 0.5
-MAX_SPEED        = 2.0
-UPSTREAM_TIMEOUT = 15
-POLL_INTERVAL    = 0.4
-MAX_POLLS        = 20
-
-VOICES = [
-    "am_adam", "am_michael", "am_onyx", "am_puck", "am_echo",
-    "am_eric", "am_fenrir", "am_liam", "am_santa",
-    "bm_george", "bm_lewis", "bm_daniel", "bm_fable",
-    "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky",
-    "af_nova", "af_river", "af_jessica", "af_kore", "af_aoede", "af_alloy",
-    "bf_emma", "bf_alice", "bf_isabella", "bf_lily",
-]
+# ---------- CONFIG ----------
+SPACE_URL = "https://motari-txt2speech.hf.space"
 
 app = Flask(__name__)
 CORS(app)
@@ -39,76 +21,78 @@ _cache = {}
 _cache_lock = threading.Lock()
 
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"]  = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    return response
-
-
-def call_upstream(text, voice, speed):
-    r = requests.post(
-        f"{UPSTREAM}/gradio_api/call/tts",
-        json={"data": [text, voice, speed]},
-        timeout=UPSTREAM_TIMEOUT,
-    )
-    r.raise_for_status()
-    eid = r.json().get("event_id")
-    if not eid:
-        raise RuntimeError("No event_id")
-
-    audio_url = None
-    for _ in range(MAX_POLLS):
-        r = requests.get(f"{UPSTREAM}/gradio_api/call/tts/{eid}", timeout=UPSTREAM_TIMEOUT)
-        r.raise_for_status()
-        match = re.search(r'https://[^"]+audio\.wav', r.text)
-        if match:
-            audio_url = match.group(0)
-            break
-        time.sleep(POLL_INTERVAL)
-
-    if not audio_url:
-        raise TimeoutError("No audio URL")
-
-    r = requests.get(audio_url, timeout=UPSTREAM_TIMEOUT)
-    r.raise_for_status()
-    return r.content
-
-
-def generate_speech(text, voice, speed):
+# ---------- CORE ----------
+def generate_speech(text, voice="am_adam", speed=1.0):
     key = f"{voice}|{speed}|{text}"
     with _cache_lock:
         if key in _cache:
             return _cache[key]
-    wav = call_upstream(text, voice, speed)
+
+    start = requests.post(
+        f"{SPACE_URL}/gradio_api/call/tts",
+        json={"data": [text, voice, speed]},
+        timeout=15,
+    )
+    start.raise_for_status()
+    eid = start.json().get("event_id")
+    if not eid:
+        raise RuntimeError("No event_id returned from Space")
+
+    audio_url = None
+    for _ in range(20):
+        res = requests.get(
+            f"{SPACE_URL}/gradio_api/call/tts/{eid}",
+            timeout=10,
+        )
+        res.raise_for_status()
+        raw = res.text
+
+        match = re.search(r'https://[^"]+audio\.wav', raw)
+        if match:
+            audio_url = match.group(0)
+            break
+
+        time.sleep(0.4)
+
+    if not audio_url:
+        raise TimeoutError("Space did not return audio in time")
+
+    audio = requests.get(audio_url, timeout=15)
+    audio.raise_for_status()
+    wav_bytes = audio.content
+
     with _cache_lock:
-        _cache[key] = wav
-    return wav
+        _cache[key] = wav_bytes
+
+    return wav_bytes
 
 
-# ---------- UI ----------
+# ---------- ROUTES ----------
 @app.route("/")
 def index():
     return render_template("index.html")
 
 
-# ---------- API ----------
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "cache_size": len(_cache)})
+    return jsonify({"status": "ok", "time": time.time()})
 
 
 @app.route("/voices")
 def voices():
-    return jsonify({"count": len(VOICES), "voices": VOICES})
+    return jsonify({
+        "voices": [
+            "am_adam", "am_michael", "am_onyx", "am_puck", "am_echo",
+            "am_eric", "am_fenrir", "am_liam", "am_santa",
+            "bm_george", "bm_lewis", "bm_daniel", "bm_fable",
+            "af_heart", "af_bella", "af_nicole", "af_sarah", "af_sky", "af_nova",
+            "bf_emma", "bf_alice", "bf_lily",
+        ]
+    })
 
 
-@app.route("/speak", methods=["POST", "OPTIONS"])
+@app.route("/speak", methods=["POST"])
 def speak():
-    if request.method == "OPTIONS":
-        return ("", 204)
-
     try:
         data  = request.get_json() or {}
         text  = (data.get("text") or "").strip()
@@ -117,9 +101,10 @@ def speak():
 
         if not text:
             return jsonify({"error": "Missing 'text'"}), 400
-        if len(text) > MAX_TEXT_LENGTH:
-            return jsonify({"error": f"Text too long (max {MAX_TEXT_LENGTH})"}), 400
-        speed = max(MIN_SPEED, min(MAX_SPEED, speed))
+        if len(text) > 800:
+            return jsonify({"error": "Text too long (max 800 chars)"}), 400
+        if speed < 0.5 or speed > 2.0:
+            speed = 1.0
 
         wav_bytes = generate_speech(text, voice, speed)
 
@@ -130,6 +115,9 @@ def speak():
             download_name=f"{voice}.wav",
         )
     except requests.Timeout:
-        return jsonify({"error": "Upstream timeout"}), 504
+        return jsonify({"error": "Space timed out — try again"}), 504
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
+
+
+# ---------- NO app.run() — VERCEL HANDLES THIS ----------
