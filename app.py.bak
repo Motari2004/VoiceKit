@@ -17,6 +17,17 @@ from psycopg.rows import dict_row
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 
+
+import cloudinary
+import cloudinary.uploader
+
+CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")
+if CLOUDINARY_URL:
+    # The cloudinary SDK reads CLOUDINARY_URL automatically,
+    # but we can also configure explicitly from parts.
+    pass
+
+
 # ============================================================
 # CONFIG
 # ============================================================
@@ -227,6 +238,7 @@ def init_db():
                     """)
                     cur.execute("""
                         CREATE TABLE IF NOT EXISTS history (
+                            audio_url  TEXT,
                             id         SERIAL PRIMARY KEY,
                             device_id  TEXT NOT NULL,
                             text       TEXT NOT NULL,
@@ -238,7 +250,13 @@ def init_db():
                     cur.execute("""
                         CREATE INDEX IF NOT EXISTS idx_history_device
                         ON history (device_id, created_at DESC);
-                    """)
+                    
+                    # Add column if it doesn't exist (safe for existing DBs)
+                    try:
+                        cur.execute("ALTER TABLE history ADD COLUMN IF NOT EXISTS audio_url TEXT;")
+                    except Exception:
+                        pass
+""")
                 conn.commit()
             print("[db] Tables ready")
         except Exception as e:
@@ -330,6 +348,36 @@ def generate_speech(text, voice, speed):
     return wav
 
 
+
+# ============================================================
+# CLOUDINARY UPLOAD
+# ============================================================
+def upload_to_cloudinary(wav_bytes, voice, device_id):
+    """Upload WAV bytes to Cloudinary. Returns secure_url or None."""
+    if not os.environ.get("CLOUDINARY_URL"):
+        return None
+    try:
+        import cloudinary
+        import cloudinary.uploader
+
+        # Public ID: unique per generation
+        import hashlib
+        public_id = "voicekit/" + hashlib.sha1(
+            (voice + str(time.time()) + device_id).encode()
+        ).hexdigest()[:20]
+
+        result = cloudinary.uploader.upload(
+            io.BytesIO(wav_bytes),
+            resource_type="video",  # Cloudinary uses 'video' for audio
+            public_id=public_id,
+            format="wav",
+            overwrite=True,
+        )
+        return result.get("secure_url")
+    except Exception as e:
+        print(f"[cloudinary] upload failed: {e}")
+        return None
+
 # ============================================================
 # ROUTES
 # ============================================================
@@ -379,26 +427,29 @@ def speak():
 
         wav_bytes = generate_speech(text, voice, speed)
 
-        # Record history (best-effort)
+        # Upload to Cloudinary + save history (best effort)
         if device_id and DATABASE_URL:
             try:
                 init_db()
+                audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
                 with get_db() as conn:
                     with conn.cursor() as cur:
                         cur.execute(
-                            "INSERT INTO history (device_id, text, voice, speed) VALUES (%s, %s, %s, %s)",
-                            (device_id, text[:800], voice, speed),
+                            "INSERT INTO history (device_id, text, voice, speed, audio_url) "
+                            "VALUES (%s, %s, %s, %s, %s)",
+                            (device_id, text[:800], voice, speed, audio_url),
                         )
                     conn.commit()
             except Exception as e:
                 print(f"[db] history insert failed: {e}")
 
-        return send_file(
+        response = send_file(
             io.BytesIO(wav_bytes),
             mimetype="audio/wav",
             as_attachment=False,
             download_name=f"{voice}.wav",
         )
+        return response
 
     except requests.Timeout:
         return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
@@ -408,6 +459,7 @@ def speak():
         return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
+
 
 
 # ---------- FAVORITES ----------
@@ -484,7 +536,7 @@ def get_history():
     try:
         init_db()
         rows = db_execute(
-            "SELECT id, text, voice, speed, created_at FROM history "
+            "SELECT id, text, voice, speed, audio_url, created_at FROM history "
             "WHERE device_id = %s ORDER BY created_at DESC LIMIT %s",
             (device_id, limit),
             fetch=True,
@@ -497,12 +549,14 @@ def get_history():
                 "text": r["text"],
                 "voice": r["voice"],
                 "speed": r["speed"],
+                "audio_url": r.get("audio_url"),
                 "created_at": r["created_at"].isoformat() if r["created_at"] else None,
             })
         return jsonify({"history": result})
     except Exception as e:
         print(f"[db] get history failed: {e}")
         return jsonify({"history": [], "error": str(e)[:200]})
+
 
 
 @app.route("/history", methods=["DELETE", "OPTIONS"])
