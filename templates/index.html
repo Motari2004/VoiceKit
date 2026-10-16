@@ -421,7 +421,7 @@
       <div class="api-label"><strong>POST</strong> to <code style="display:inline; padding:2px 6px;">/gradio_api/call/tts</code></div>
       <code>curl -X POST https://motari-txt2speech.hf.space/gradio_api/call/tts \
   -H "Content-Type: application/json" \
-  -d '{"data":["Good morning. I hope you are having a wonderful day. Let me read this back to you in a clear and natural voice.","am_adam",1.0]}'</code>
+  -d '{"data":["Here's the test: can you tell the difference between me and a human?","am_adam",1.0]}'</code>
       <div class="api-label">Returns: <code style="display:inline; padding:2px 6px;">{"event_id": "..."}</code></div>
 
       <div class="api-label"><strong>GET</strong> the result</div>
@@ -431,13 +431,13 @@
       <div class="api-label"><strong>Python (recommended)</strong></div>
       <code>from gradio_client import Client
 client = Client("Motari/txt2speech")
-path, _ = client.predict("Good morning. I hope you are having a wonderful day. Let me read this back to you in a clear and natural voice.d", "am_adam", 1.0, api_name="/tts")
+path, _ = client.predict("Here's the test: can you tell the difference between me and a human?d", "am_adam", 1.0, api_name="/tts")
 print(path)  # local WAV path</code>
 
       <div class="api-label"><strong>JavaScript</strong></div>
       <code>import { Client } from "@gradio/client";
 const app = await Client.connect("Motari/txt2speech");
-const result = await app.predict("/tts", ["Good morning. I hope you are having a wonderful day. Let me read this back to you in a clear and natural voice.", "am_adam", 1.0]);
+const result = await app.predict("/tts", ["Here's the test: can you tell the difference between me and a human?", "am_adam", 1.0]);
 console.log(result.data[0].url);</code>
     </div>
   </div>
