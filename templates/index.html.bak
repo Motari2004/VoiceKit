@@ -1374,9 +1374,21 @@
         <span class="speed-value" id="speedVal">1.00×</span>
       </div>
 
-      <button class="speak-btn" id="speakBtn">
-        <span id="speakBtnContent">🔊 Speak</span>
-      </button>
+      <div class="action-row">
+        <button class="speak-btn primary" id="speakBtn">
+          <span class="play-icon" id="speakIcon">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+          <span id="speakBtnContent">Generate</span>
+        </button>
+        <button class="download-btn" id="downloadBtn" title="Download WAV" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+      </div>
 
       <div class="status" id="status">Ready. Pick a voice and hit Speak (Ctrl+Enter).</div>
       <audio id="player" controls></audio>
@@ -1876,9 +1888,12 @@ async function speak() {
 
   const speed = parseFloat(speedEl.value);
 
+  // Set loading state (defensively)
   speakBtn.disabled = true;
-  speakBtnContent.textContent = 'Generating...';
-    document.getElementById('speakIcon').innerHTML = '<div class="spinner"></div>';
+  const btnContent = document.getElementById('speakBtnContent');
+  const btnIcon    = document.getElementById('speakIcon');
+  if (btnContent) btnContent.textContent = 'Generating...';
+  if (btnIcon)    btnIcon.innerHTML = '<div class="spinner"></div>';
   setStatus('Generating audio...', 'busy');
 
   const t0 = performance.now();
@@ -1900,6 +1915,11 @@ async function speak() {
 
     player.src = url;
     player.classList.add('show');
+    await player.play().catch(() => {});
+
+    const ms = Math.round(performance.now() - t0);
+    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
+
     // Enable download button
     const dlBtn = document.getElementById('downloadBtn');
     if (dlBtn) {
@@ -1912,11 +1932,6 @@ async function speak() {
       };
     }
 
-    await player.play().catch(() => {});
-
-    const ms = Math.round(performance.now() - t0);
-    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
-
     history.unshift({ text, voice: selectedVoiceName, speed, url, ts: Date.now(), ms });
     if (history.length > 20) history.pop();
     renderHistory();
@@ -1925,10 +1940,11 @@ async function speak() {
     setStatus('Error: ' + e.message, 'err');
   } finally {
     speakBtn.disabled = false;
-    speakBtnContent.textContent = 'Generate';
-    document.getElementById('speakIcon').innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    if (btnContent) btnContent.textContent = 'Generate';
+    if (btnIcon)    btnIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   }
 }
+
 
 // ============================================================
 // HISTORY

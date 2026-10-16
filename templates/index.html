@@ -1882,19 +1882,19 @@ async function previewVoice(voiceId, btn) {
 // ============================================================
 // SPEAK
 // ============================================================
-async function speak() {
+async function speak(retryCount = 0) {
   const text = textEl.value.trim();
   if (!text) { setStatus('Type something first.', 'err'); return; }
 
   const speed = parseFloat(speedEl.value);
+  const isRetry = retryCount > 0;
 
-  // Set loading state (defensively)
   speakBtn.disabled = true;
   const btnContent = document.getElementById('speakBtnContent');
   const btnIcon    = document.getElementById('speakIcon');
-  if (btnContent) btnContent.textContent = 'Generating...';
+  if (btnContent) btnContent.textContent = isRetry ? 'Warming up...' : 'Generating...';
   if (btnIcon)    btnIcon.innerHTML = '<div class="spinner"></div>';
-  setStatus('Generating audio...', 'busy');
+  setStatus(isRetry ? 'Voice service warming up, retrying...' : 'Generating audio...', 'busy');
 
   const t0 = performance.now();
 
@@ -1907,6 +1907,13 @@ async function speak() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+
+      // Retry on 504 (timeout) — the Space is warming up
+      if (res.status === 504 && retryCount < 2) {
+        await new Promise(r => setTimeout(r, 2500));
+        return speak(retryCount + 1);
+      }
+
       throw new Error(err.error || `Server error ${res.status}`);
     }
 
@@ -1920,7 +1927,6 @@ async function speak() {
     const ms = Math.round(performance.now() - t0);
     setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
 
-    // Enable download button
     const dlBtn = document.getElementById('downloadBtn');
     if (dlBtn) {
       dlBtn.disabled = false;
@@ -1944,6 +1950,7 @@ async function speak() {
     if (btnIcon)    btnIcon.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
   }
 }
+
 
 
 // ============================================================
