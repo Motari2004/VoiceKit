@@ -228,6 +228,7 @@ def init_db():
         try:
             with get_db() as conn:
                 with conn.cursor() as cur:
+                    # ---------- favorites ----------
                     cur.execute("""
                         CREATE TABLE IF NOT EXISTS favorites (
                             device_id  TEXT NOT NULL,
@@ -236,27 +237,32 @@ def init_db():
                             PRIMARY KEY (device_id, voice_id)
                         );
                     """)
+
+                    # ---------- history ----------
                     cur.execute("""
                         CREATE TABLE IF NOT EXISTS history (
-                            audio_url  TEXT,
                             id         SERIAL PRIMARY KEY,
                             device_id  TEXT NOT NULL,
                             text       TEXT NOT NULL,
                             voice      TEXT NOT NULL,
                             speed      REAL NOT NULL,
+                            audio_url  TEXT,
                             created_at TIMESTAMPTZ DEFAULT NOW()
                         );
                     """)
+
                     cur.execute("""
                         CREATE INDEX IF NOT EXISTS idx_history_device
                         ON history (device_id, created_at DESC);
-                    
-                    # Add column if it doesn't exist (safe for existing DBs)
-                    try:
-                        cur.execute("ALTER TABLE history ADD COLUMN IF NOT EXISTS audio_url TEXT;")
-                    except Exception:
-                        pass
-""")
+                    """)
+
+                    # ---------- migration: add audio_url if missing ----------
+                    # Safe for existing databases created before this column existed.
+                    cur.execute("""
+                        ALTER TABLE history
+                        ADD COLUMN IF NOT EXISTS audio_url TEXT;
+                    """)
+
                 conn.commit()
             print("[db] Tables ready")
         except Exception as e:

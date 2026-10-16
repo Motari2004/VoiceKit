@@ -1,9 +1,11 @@
 """
-Fix: the ALTER TABLE migration was inserted as a Python comment
-inside the SQL triple-quoted string. Postgres tried to parse the
-comment as SQL and failed, so init_db() crashes every time.
-
-This patch moves the migration to proper Python code OUTSIDE the SQL string.
+VoiceKit — Cloudinary (final, verified)
+Replaces the entire Cloudinary block + /speak route with a clean
+version that:
+  - Reads 3 env vars AND falls back to CLOUDINARY_URL
+  - Logs every step
+  - Uploads synchronously (guaranteed to complete before response)
+  - Never returns audio_url=None silently
 """
 
 import os
@@ -20,70 +22,158 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
+CLOUDINARY_BLOCK = '''# ============================================================
+# CLOUDINARY
 # ============================================================
-# Clean init_db — migration OUTSIDE the SQL string
-# ============================================================
-NEW_INIT_DB = '''def init_db():
-    global _db_initialized
-    if _db_initialized:
+import cloudinary
+import cloudinary.uploader
+
+_cloudinary_ready = False
+
+def _init_cloudinary():
+    """Read credentials from env vars and configure the SDK."""
+    global _cloudinary_ready
+
+    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    api_key    = os.environ.get("CLOUDINARY_API_KEY", "").strip()
+    api_secret = os.environ.get("CLOUDINARY_API_SECRET", "").strip()
+
+    # Fallback: parse CLOUDINARY_URL if present
+    if not (cloud_name and api_key and api_secret):
+        url = os.environ.get("CLOUDINARY_URL", "").strip()
+        if url.startswith("cloudinary://"):
+            try:
+                body = url.replace("cloudinary://", "")
+                creds, cloud_name = body.split("@", 1)
+                api_key, api_secret = creds.split(":", 1)
+            except Exception as e:
+                print(f"[cloudinary] could not parse CLOUDINARY_URL: {e}")
+
+    print(f"[cloudinary] env check: cloud={'set' if cloud_name else 'MISSING'} "
+          f"key={'set' if api_key else 'MISSING'} "
+          f"secret={'set' if api_secret else 'MISSING'}")
+
+    if not (cloud_name and api_key and api_secret):
+        print("[cloudinary] not configured — uploads will be skipped")
+        _cloudinary_ready = False
         return
-    with _db_lock:
-        if _db_initialized:
-            return
-        if not DATABASE_URL:
-            print("[db] DATABASE_URL not set — persistence disabled")
-            _db_initialized = True
-            return
-        try:
-            with get_db() as conn:
-                with conn.cursor() as cur:
-                    # ---------- favorites ----------
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS favorites (
-                            device_id  TEXT NOT NULL,
-                            voice_id   TEXT NOT NULL,
-                            created_at TIMESTAMPTZ DEFAULT NOW(),
-                            PRIMARY KEY (device_id, voice_id)
-                        );
-                    """)
 
-                    # ---------- history ----------
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS history (
-                            id         SERIAL PRIMARY KEY,
-                            device_id  TEXT NOT NULL,
-                            text       TEXT NOT NULL,
-                            voice      TEXT NOT NULL,
-                            speed      REAL NOT NULL,
-                            audio_url  TEXT,
-                            created_at TIMESTAMPTZ DEFAULT NOW()
-                        );
-                    """)
+    try:
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True,
+        )
+        _cloudinary_ready = True
+        print(f"[cloudinary] configured for cloud: {cloud_name}")
+    except Exception as e:
+        print(f"[cloudinary] config failed: {e}")
+        _cloudinary_ready = False
 
-                    cur.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_history_device
-                        ON history (device_id, created_at DESC);
-                    """)
 
-                    # ---------- migration: add audio_url if missing ----------
-                    # Safe for existing databases created before this column existed.
-                    cur.execute("""
-                        ALTER TABLE history
-                        ADD COLUMN IF NOT EXISTS audio_url TEXT;
-                    """)
+# Run at import
+_init_cloudinary()
 
-                conn.commit()
-            print("[db] Tables ready")
-        except Exception as e:
-            print(f"[db] init failed: {e}")
-        finally:
-            _db_initialized = True
+
+def upload_to_cloudinary(wav_bytes, voice, device_id=""):
+    """Upload WAV bytes to Cloudinary. Returns secure_url or None."""
+    if not _cloudinary_ready:
+        print("[cloudinary] upload skipped: not configured")
+        return None
+
+    try:
+        import hashlib
+        public_id = "voicekit/" + hashlib.sha1(
+            (voice + str(time.time()) + device_id).encode()
+        ).hexdigest()[:24]
+
+        print(f"[cloudinary] uploading {len(wav_bytes)} bytes as {public_id}.wav...")
+
+        result = cloudinary.uploader.upload(
+            io.BytesIO(wav_bytes),
+            resource_type="video",
+            public_id=public_id,
+            format="wav",
+            overwrite=False,
+        )
+        url = result.get("secure_url")
+        print(f"[cloudinary] upload OK: {url}")
+        return url
+    except Exception as e:
+        print(f"[cloudinary] upload FAILED: {type(e).__name__}: {e}")
+        return None
+'''
+
+
+NEW_SPEAK = '''@app.route("/speak", methods=["POST", "OPTIONS"])
+def speak():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    try:
+        data  = request.get_json() or {}
+        text  = (data.get("text") or "").strip()
+        voice = (data.get("voice") or "am_adam").strip()
+        speed = float(data.get("speed", 1.0))
+        device_id = (data.get("device_id") or "").strip()
+
+        if not text:
+            return jsonify({"error": "Missing 'text'"}), 400
+        if len(text) > MAX_TEXT_LENGTH:
+            return jsonify({"error": f"Text too long (max {MAX_TEXT_LENGTH})"}), 400
+
+        speed = max(MIN_SPEED, min(MAX_SPEED, speed))
+
+        # 1. Generate audio
+        print(f"[speak] generating: {text[:40]!r} voice={voice} speed={speed}")
+        wav_bytes = generate_speech(text, voice, speed)
+        print(f"[speak] generated {len(wav_bytes)} bytes")
+
+        # 2. Upload to Cloudinary FIRST (synchronous, blocking)
+        audio_url = None
+        if device_id:
+            print(f"[speak] uploading to cloudinary...")
+            audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
+            print(f"[speak] cloudinary result: {audio_url}")
+
+        # 3. Save to history
+        if device_id and DATABASE_URL:
+            try:
+                init_db()
+                db_execute(
+                    "INSERT INTO history (device_id, text, voice, speed, audio_url) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (device_id, text[:800], voice, speed, audio_url),
+                )
+                print(f"[speak] history saved with audio_url={audio_url}")
+            except Exception as e:
+                print(f"[speak] history insert failed: {e}")
+
+        # 4. Return WAV
+        return send_file(
+            io.BytesIO(wav_bytes),
+            mimetype="audio/wav",
+            as_attachment=False,
+            download_name=f"{voice}.wav",
+        )
+
+    except requests.Timeout:
+        return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
+    except TimeoutError:
+        return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
+    except requests.HTTPError as e:
+        return jsonify({"error": f"Upstream error: {e.response.status_code}"}), 502
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)[:250]}), 500
 '''
 
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Migration Fix")
+    print(" VoiceKit — Cloudinary Final Fix")
     print("=" * 60)
 
     if not os.path.exists(APP):
@@ -96,27 +186,39 @@ def patch():
         src = f.read()
 
     original = src
+    changes = []
 
-    # Match the entire init_db function
-    pattern = re.compile(
-        r'def init_db\(\):.*?(?=\n\ndef |\n\n# =|\Z)',
+    # ---------- 1) Replace the entire Cloudinary block ----------
+    # Match from "# CLOUDINARY" up to the next "# ======" section
+    cloud_pattern = re.compile(
+        r'# =+\s*\n# CLOUDINARY.*?(?=\n# =+\s*\n# [A-Z])',
         re.DOTALL
     )
 
-    match = pattern.search(src)
-    if not match:
-        print("  ERROR: could not find init_db() function")
-        return
+    if cloud_pattern.search(src):
+        src = cloud_pattern.sub(CLOUDINARY_BLOCK + "\n\n", src, count=1)
+        changes.append("cloudinary block")
+    else:
+        # Insert before the UPSTREAM block
+        anchor = "# ============================================================\n# UPSTREAM"
+        if anchor in src:
+            src = src.replace(anchor, CLOUDINARY_BLOCK + "\n" + anchor, 1)
+            changes.append("cloudinary block inserted")
+        else:
+            print("  ERROR: cannot find anchor for Cloudinary block")
+            return
 
-    src = src[:match.start()] + NEW_INIT_DB + src[match.end():]
-
-    # Also clean any leftover broken comment lines
-    src = re.sub(
-        r'^\s*#\s*Add column if it doesn\'t exist.*$',
-        '',
-        src,
-        flags=re.MULTILINE
+    # ---------- 2) Replace the /speak route ----------
+    speak_pattern = re.compile(
+        r'@app\.route\("/speak", methods=\["POST", "OPTIONS"\]\).*?(?=\n# -+ FAVORITES|\n# =+\s*\n# FAVORITES)',
+        re.DOTALL
     )
+
+    if speak_pattern.search(src):
+        src = speak_pattern.sub(NEW_SPEAK + "\n\n", src, count=1)
+        changes.append("/speak route")
+    else:
+        print("  WARN: /speak route not found")
 
     if src == original:
         print("  No changes made.")
@@ -125,28 +227,24 @@ def patch():
     with open(APP, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] init_db() rewritten — migration is now proper Python")
+    print(f"  [OK] Applied: {', '.join(changes)}")
     print()
     print("=" * 60)
     print(" DONE")
     print("=" * 60)
     print()
-    print(" What was wrong:")
-    print("   The ALTER TABLE migration was pasted INSIDE the triple-quoted")
-    print("   SQL string as a Python comment (# Add column...). Postgres")
-    print("   tried to parse the comment as SQL and crashed.")
+    print(" Now:")
+    print("   1. Deploy: vercel --prod")
+    print("   2. Generate a NEW phrase (old entries won't update)")
+    print("   3. Check Vercel function logs — you'll see:")
+    print("        [cloudinary] env check: cloud=set key=set secret=set")
+    print("        [cloudinary] configured for cloud: dndxu5ak")
+    print("        [cloudinary] uploading XXXX bytes as voicekit/...wav...")
+    print("        [cloudinary] upload OK: https://res.cloudinary.com/...")
+    print("        [speak] history saved with audio_url=https://...")
     print()
-    print(" The fix:")
-    print("   init_db() now uses a proper Python-level `cur.execute()`")
-    print("   for the ALTER TABLE migration, outside any SQL string.")
-    print()
-    print(" Deploy:")
-    print("   vercel --prod")
-    print()
-    print(" After deploy, the first /history or /speak request will:")
-    print("   1. Create the tables (if missing)")
-    print("   2. Add the audio_url column (if missing)")
-    print("   3. Print '[db] Tables ready' to the logs")
+    print(" If you see 'env check: cloud=MISSING', the Vercel env")
+    print(" vars aren't being read. Add them and REDEPLOY.")
     print()
     print("=" * 60)
 
