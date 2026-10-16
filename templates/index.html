@@ -3,406 +3,498 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VoiceKit — Text to Speech</title>
-<meta name="description" content="Natural text-to-speech with 54 voices. Free, fast, offline.">
+<title>VoiceKit — Natural Text to Speech</title>
+<meta name="description" content="Generate natural speech from text. 54 voices, 9 languages, free.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <style>
   :root {
-    --bg-0: #050508;
-    --bg-1: #0a0d16;
-    --bg-2: #12172a;
-    --surface: rgba(255, 255, 255, 0.03);
-    --surface-2: rgba(255, 255, 255, 0.05);
-    --border: rgba(255, 255, 255, 0.08);
-    --border-2: rgba(255, 255, 255, 0.14);
+    --bg:          #08080a;
+    --bg-side:     #0c0c0f;
+    --bg-card:     #121216;
+    --bg-input:    #1a1a20;
+    --bg-hover:    #1c1c22;
 
-    --cyan: #22d3ee;
-    --purple: #8b5cf6;
-    --pink: #ec4899;
-    --green: #34d399;
-    --amber: #fbbf24;
-    --red: #f87171;
+    --border:      rgba(255,255,255,0.06);
+    --border-hi:   rgba(255,255,255,0.12);
 
-    --text: #e8eaed;
-    --text-2: #9ca3af;
-    --text-3: #6b7280;
+    --text:        #f4f4f5;
+    --text-muted:  #8a8a93;
+    --text-dim:    #5a5a63;
 
-    --radius: 14px;
-    --radius-sm: 8px;
-    --transition: all 0.18s ease;
+    --accent:      #7c3aed;
+    --accent-hi:   #a855f7;
+    --accent-soft: rgba(124, 58, 237, 0.12);
+
+    --success:     #22c55e;
+    --warning:     #eab308;
+    --danger:      #ef4444;
+
+    --radius-sm:   8px;
+    --radius-md:   10px;
+    --radius-lg:   14px;
+
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
   html, body {
-    min-height: 100vh;
-    background: var(--bg-0);
+    background: var(--bg);
     color: var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    background:
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34, 211, 238, 0.12), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 90% 30%, rgba(139, 92, 246, 0.1), transparent 60%),
-      radial-gradient(ellipse 60% 40% at 10% 60%, rgba(236, 72, 153, 0.06), transparent 60%),
-      var(--bg-0);
-    padding: 32px 20px 64px;
+    min-height: 100vh;
+    display: flex;
   }
 
-  /* ---------- LAYOUT ---------- */
-  .container {
-    max-width: 720px;
-    margin: 0 auto;
+  ::selection { background: var(--accent); color: white; }
+
+  /* ============================================================
+     SIDEBAR
+     ============================================================ */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    height: 100vh;
+    background: var(--bg-side);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
   }
 
-  /* ---------- HEADER ---------- */
-  .header {
-    text-align: center;
-    margin-bottom: 36px;
-  }
-
-  .logo {
-    display: inline-flex;
+  .sidebar-brand {
+    display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 10px;
+    padding: 8px 10px 20px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
   }
 
-  .logo-mark {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: linear-gradient(135deg, var(--cyan), var(--purple));
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-hi));
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    box-shadow: 0 4px 20px rgba(34, 211, 238, 0.3);
+    font-size: 1rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
   }
 
-  h1 {
-    font-size: 2.1rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    background: linear-gradient(135deg, #fff 20%, var(--cyan) 70%, var(--purple));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .tagline {
-    color: var(--text-2);
-    font-size: 0.92rem;
-    font-weight: 400;
-    margin-top: 4px;
-  }
-
-  .badges {
+  .brand-text {
     display: flex;
-    gap: 8px;
-    justify-content: center;
-    margin-top: 12px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    line-height: 1.15;
   }
 
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 11px;
-    background: rgba(34, 211, 238, 0.08);
-    border: 1px solid rgba(34, 211, 238, 0.2);
-    border-radius: 20px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--cyan);
-    text-transform: uppercase;
-  }
-
-  .badge::before {
-    content: "";
-    width: 5px;
-    height: 5px;
-    background: var(--cyan);
-    border-radius: 50%;
-    box-shadow: 0 0 6px var(--cyan);
-  }
-
-  /* ---------- CARD ---------- */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px;
-    margin-bottom: 18px;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
-
-  /* ---------- INPUT ---------- */
-  .input-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
-
-  .label {
-    font-size: 0.72rem;
+  .brand-name {
+    font-size: 0.95rem;
     font-weight: 700;
-    color: var(--text-2);
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .brand-version {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .nav-section {
+    margin-bottom: 20px;
+  }
+
+  .nav-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+    font-weight: 600;
+    padding: 0 10px;
+    margin-bottom: 6px;
   }
 
-  .char-count {
+  .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.12s var(--ease);
+    letter-spacing: -0.005em;
+  }
+
+  .nav-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  .nav-btn.active {
+    background: var(--accent-soft);
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .nav-btn.active .nav-icon {
+    color: var(--accent-hi);
+  }
+
+  .nav-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--text-dim);
+    transition: color 0.12s var(--ease);
+  }
+
+  .nav-btn:hover .nav-icon { color: var(--text-muted); }
+
+  .nav-badge {
+    margin-left: auto;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    background: var(--bg-input);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .nav-btn.active .nav-badge {
+    background: var(--accent);
+    color: white;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
     font-size: 0.72rem;
-    color: var(--text-3);
-    font-variant-numeric: tabular-nums;
+    color: var(--text-dim);
+    line-height: 1.6;
   }
-  .char-count.warn { color: var(--amber); }
-  .char-count.over { color: var(--red); }
 
+  .sidebar-footer a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color 0.12s;
+    display: block;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .sidebar-footer a:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+  }
+
+  /* ============================================================
+     MAIN CONTENT
+     ============================================================ */
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 40px 48px 80px;
+    overflow-x: hidden;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; animation: fadeUp 0.3s var(--ease) both; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .view-header {
+    margin-bottom: 32px;
+  }
+
+  .view-title {
+    font-size: 1.65rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1.15;
+  }
+
+  .view-subtitle {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    letter-spacing: -0.005em;
+  }
+
+  /* ============================================================
+     CARDS
+     ============================================================ */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-bottom: 18px;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .card-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .card-hint {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .card-hint.warn { color: var(--warning); }
+  .card-hint.over { color: var(--danger); }
+
+  /* ============================================================
+     TEXTAREA
+     ============================================================ */
   textarea {
     width: 100%;
-    padding: 16px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid var(--border-2);
-    border-radius: var(--radius-sm);
+    min-height: 140px;
+    padding: 16px 18px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     color: var(--text);
     font-size: 0.95rem;
     font-family: inherit;
+    line-height: 1.6;
     resize: vertical;
-    min-height: 110px;
     outline: none;
-    transition: var(--transition);
-    line-height: 1.55;
+    transition: all 0.15s var(--ease);
   }
+
+  textarea::placeholder { color: var(--text-dim); }
 
   textarea:focus {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
-    background: rgba(0, 0, 0, 0.5);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
-  textarea::placeholder { color: var(--text-3); }
-
-  /* ---------- QUICK PHRASES ---------- */
   .quick {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
+    gap: 8px;
+    margin-top: 14px;
   }
 
   .quick button {
-    padding: 5px 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    color: var(--text-2);
-    font-size: 0.72rem;
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border-hi);
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
     font-family: inherit;
     font-weight: 500;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
   }
 
   .quick button:hover {
-    background: rgba(34, 211, 238, 0.1);
-    border-color: rgba(34, 211, 238, 0.3);
-    color: var(--cyan);
+    background: var(--bg-input);
+    border-color: var(--accent);
+    color: var(--text);
   }
 
-  /* ---------- VOICE PICKER ---------- */
-  .voice-picker {
-    margin-top: 6px;
-  }
-
+  /* ============================================================
+     SEARCH + FILTERS
+     ============================================================ */
   .search-wrap {
     position: relative;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
-  .search-wrap svg {
+  .search-icon {
     position: absolute;
-    left: 13px;
+    left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
-    color: var(--text-3);
+    width: 15px;
+    height: 15px;
+    color: var(--text-dim);
     pointer-events: none;
   }
 
   #voiceSearch {
     width: 100%;
-    padding: 10px 14px 10px 36px;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid var(--border-2);
-    border-radius: var(--radius-sm);
+    padding: 10px 16px 10px 40px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     font-family: inherit;
     outline: none;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
   }
 
+  #voiceSearch::placeholder { color: var(--text-dim); }
   #voiceSearch:focus {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
 
   .filter-row {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
 
   .filter-chip {
-    padding: 5px 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    color: var(--text-2);
+    padding: 5px 11px;
+    background: transparent;
+    border: 1px solid var(--border-hi);
+    border-radius: 6px;
+    color: var(--text-muted);
     font-size: 0.72rem;
     font-family: inherit;
     font-weight: 500;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
   }
 
   .filter-chip:hover {
-    background: rgba(34, 211, 238, 0.08);
     color: var(--text);
+    background: var(--bg-hover);
   }
 
   .filter-chip.active {
-    background: rgba(34, 211, 238, 0.15);
-    border-color: var(--cyan);
-    color: var(--cyan);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
     font-weight: 600;
   }
 
   .voice-count {
     font-size: 0.7rem;
-    color: var(--text-3);
-    text-align: right;
-    margin-bottom: 8px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
   }
 
+  /* ============================================================
+     VOICE LIST
+     ============================================================ */
   .voice-list {
-    max-height: 340px;
+    max-height: calc(100vh - 380px);
+    min-height: 320px;
     overflow-y: auto;
     padding-right: 6px;
-    margin-bottom: 12px;
   }
 
-  .voice-list::-webkit-scrollbar { width: 6px; }
+  .voice-list::-webkit-scrollbar { width: 4px; }
   .voice-list::-webkit-scrollbar-track { background: transparent; }
   .voice-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-  }
-  .voice-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .voice-lang { margin-bottom: 16px; }
-  .voice-lang.hidden { display: none; }
-
-  .voice-lang-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: var(--cyan);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(34, 211, 238, 0.12);
-  }
-
-  .voice-lang-header::before {
-    content: "";
-    width: 3px;
-    height: 12px;
-    background: var(--cyan);
+    background: var(--border-hi);
     border-radius: 2px;
   }
 
-  .voice-gender-label {
-    font-size: 0.62rem;
-    color: var(--text-3);
+  .voice-lang { margin-bottom: 22px; }
+  .voice-lang.hidden { display: none; }
+
+  .voice-lang-header {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin: 10px 0 6px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .voice-gender-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 10px 0 6px;
+    grid-column: 1 / -1;
   }
 
   .voice-chips {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 6px;
   }
 
   .voice-chip {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
     position: relative;
-    overflow: hidden;
   }
 
   .voice-chip.hidden { display: none; }
 
   .voice-chip:hover {
-    background: rgba(34, 211, 238, 0.06);
-    border-color: rgba(34, 211, 238, 0.3);
-    transform: translateY(-1px);
+    background: var(--bg-hover);
+    border-color: var(--border-hi);
   }
 
   .voice-chip.selected {
-    background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.12));
-    border-color: var(--cyan);
-    box-shadow: 0 0 16px rgba(34, 211, 238, 0.15);
+    background: var(--accent-soft);
+    border-color: var(--accent);
   }
 
-  .voice-chip.selected::after {
-    content: "✓";
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    font-size: 0.6rem;
-    color: var(--cyan);
-    font-weight: 700;
-  }
-
-  .chip-content {
-    flex: 1;
-    min-width: 0;
-  }
+  .chip-content { flex: 1; min-width: 0; }
 
   .chip-name {
     display: block;
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--text);
+    letter-spacing: -0.01em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -410,221 +502,256 @@
 
   .chip-desc {
     display: block;
-    font-size: 0.63rem;
-    color: var(--text-3);
+    font-size: 0.68rem;
+    color: var(--text-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 1px;
   }
 
+  .voice-chip.selected .chip-name { color: white; }
+  .voice-chip.selected .chip-desc { color: rgba(255,255,255,0.6); }
+
   .chip-play {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(34, 211, 238, 0.12);
-    border: 1px solid rgba(34, 211, 238, 0.2);
+    background: var(--bg);
+    border: 1px solid var(--border-hi);
     border-radius: 50%;
-    color: var(--cyan);
+    color: var(--text-muted);
     cursor: pointer;
     font-size: 0.5rem;
     padding: 0;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
   }
 
   .chip-play:hover {
-    background: rgba(34, 211, 238, 0.3);
-    transform: scale(1.1);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
   }
 
   .chip-play.playing {
-    background: var(--cyan);
-    color: #000;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
   }
 
-  /* ---------- SELECTED BAR ---------- */
+  /* ============================================================
+     SELECTED BAR
+     ============================================================ */
   .selected-bar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(139, 92, 246, 0.08));
-    border: 1px solid rgba(34, 211, 238, 0.25);
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-top: 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+    flex-shrink: 0;
   }
 
   .selected-bar .label {
-    font-size: 0.65rem;
-    color: var(--text-3);
+    font-size: 0.68rem;
+    color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
   }
 
   .selected-bar .name {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-left: auto;
   }
 
   .selected-bar .id {
-    font-family: 'SF Mono', Consolas, monospace;
-    font-size: 0.72rem;
-    color: var(--cyan);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    padding: 2px 7px;
+    background: var(--bg);
+    border-radius: 4px;
   }
 
-  /* ---------- CONTROLS ---------- */
-  .controls-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 16px;
-    align-items: center;
-    margin-top: 18px;
-  }
-
-  .speed-control {
+  /* ============================================================
+     CONTROLS
+     ============================================================ */
+  .speed-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
 
-  .speed-control label {
-    font-size: 0.72rem;
+  .speed-label {
+    font-size: 0.78rem;
     font-weight: 600;
-    color: var(--text-2);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    min-width: 50px;
   }
 
   input[type=range] {
     flex: 1;
-    height: 4px;
+    height: 3px;
     -webkit-appearance: none;
     appearance: none;
-    background: var(--surface-2);
+    background: var(--border-hi);
     border-radius: 2px;
     outline: none;
-    accent-color: var(--cyan);
   }
 
   input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    background: var(--cyan);
+    width: 15px;
+    height: 15px;
+    background: white;
+    border: 2px solid var(--accent);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15);
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
   }
 
   input[type=range]::-webkit-slider-thumb:hover {
-    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0.25);
+    background: var(--accent);
+    transform: scale(1.1);
   }
 
   .speed-value {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--cyan);
-    min-width: 50px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 52px;
     text-align: right;
-    font-variant-numeric: tabular-nums;
   }
 
-  /* ---------- SPEAK BUTTON ---------- */
+  /* ============================================================
+     SPEAK BUTTON
+     ============================================================ */
   .speak-btn {
     width: 100%;
-    padding: 16px;
+    padding: 15px;
     margin-top: 18px;
-    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    background: var(--text);
+    color: var(--bg);
     border: none;
-    border-radius: var(--radius-sm);
-    color: #0a0a0f;
-    font-size: 0.95rem;
-    font-weight: 700;
+    border-radius: var(--radius-md);
+    font-size: 0.92rem;
+    font-weight: 600;
     font-family: inherit;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25);
   }
 
   .speak-btn:hover:not(:disabled) {
+    background: white;
     transform: translateY(-1px);
-    box-shadow: 0 6px 28px rgba(34, 211, 238, 0.35);
+    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.12);
   }
 
-  .speak-btn:active:not(:disabled) {
-    transform: translateY(0);
+  .speak-btn:disabled { opacity: 0.55; cursor: wait; }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(10,10,10,0.2);
+    border-top-color: var(--bg);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
   }
 
-  .speak-btn:disabled {
-    opacity: 0.6;
-    cursor: wait;
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  .speak-btn.generating {
-    animation: pulse-btn 1.5s infinite;
-  }
-
-  @keyframes pulse-btn {
-    0%, 100% { box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25); }
-    50% { box-shadow: 0 4px 30px rgba(34, 211, 238, 0.5); }
-  }
-
-  /* ---------- STATUS ---------- */
+  /* ============================================================
+     STATUS
+     ============================================================ */
   .status {
-    margin-top: 14px;
-    padding: 12px 14px;
-    background: rgba(0, 0, 0, 0.3);
+    margin-top: 12px;
+    padding: 10px 13px;
+    background: var(--bg-input);
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
     font-size: 0.78rem;
-    color: var(--text-2);
-    font-family: 'SF Mono', Consolas, monospace;
-    min-height: 20px;
-    transition: var(--transition);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.2s var(--ease);
   }
 
-  .status.ok { color: var(--green); background: rgba(52, 211, 153, 0.08); }
-  .status.err { color: var(--red); background: rgba(248, 113, 113, 0.08); }
-  .status.busy { color: var(--amber); background: rgba(251, 191, 36, 0.08); }
+  .status.ok {
+    color: var(--success);
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.2);
+  }
 
-  /* ---------- AUDIO PLAYER ---------- */
+  .status.err {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .status.busy {
+    color: var(--warning);
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.2);
+  }
+
+  /* ============================================================
+     AUDIO PLAYER
+     ============================================================ */
   audio {
     width: 100%;
-    margin-top: 14px;
+    margin-top: 12px;
     display: none;
     border-radius: var(--radius-sm);
+    filter: invert(0.9) hue-rotate(180deg);
   }
 
   audio.show { display: block; }
 
-  /* ---------- HISTORY ---------- */
+  /* ============================================================
+     HISTORY
+     ============================================================ */
   .history-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
-    margin-bottom: 6px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: var(--radius-sm);
-    transition: var(--transition);
+    padding: 11px 13px;
+    margin-bottom: 7px;
+    background: var(--bg-input);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    transition: all 0.15s var(--ease);
   }
 
-  .history-item:hover { background: rgba(0, 0, 0, 0.35); }
+  .history-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+  }
 
   .history-item .info { flex: 1; min-width: 0; }
 
   .history-item .text {
-    font-size: 0.8rem;
+    font-size: 0.83rem;
     color: var(--text);
     white-space: nowrap;
     overflow: hidden;
@@ -633,218 +760,342 @@
 
   .history-item .meta {
     font-size: 0.68rem;
-    color: var(--text-3);
+    color: var(--text-dim);
     margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   .history-item button {
-    padding: 5px 12px;
-    background: rgba(34, 211, 238, 0.12);
-    border: none;
+    padding: 5px 11px;
+    background: transparent;
+    border: 1px solid var(--border-hi);
     border-radius: 6px;
-    color: var(--cyan);
+    color: var(--text-muted);
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    transition: var(--transition);
+    transition: all 0.15s var(--ease);
     flex-shrink: 0;
   }
 
   .history-item button:hover {
-    background: rgba(34, 211, 238, 0.25);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
   }
 
   .empty {
-    color: var(--text-3);
-    font-size: 0.8rem;
     text-align: center;
-    padding: 16px;
-    font-style: italic;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
   }
 
-  /* ---------- API SECTION ---------- */
-  .api-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    padding: 4px 0;
-    user-select: none;
-  }
-
-  .api-toggle h3 {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .api-toggle-icon {
-    color: var(--text-3);
-    font-size: 0.75rem;
-    transition: transform 0.2s;
-  }
-
-  .api-toggle.open .api-toggle-icon {
-    transform: rotate(180deg);
-  }
-
-  .api-body {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-  }
-
-  .api-body.open {
-    max-height: 3000px;
-    margin-top: 14px;
-  }
-
-  .api-block { margin-bottom: 14px; }
+  /* ============================================================
+     API / DOCS
+     ============================================================ */
+  .api-block { margin-bottom: 22px; }
 
   .api-label {
-    font-size: 0.72rem;
-    color: var(--text-2);
-    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
     font-weight: 600;
   }
 
-  .api-label strong { color: var(--text); font-weight: 700; }
+  .api-label strong { color: var(--text); font-weight: 600; }
 
   .api-code {
     display: block;
-    padding: 12px 14px;
-    background: rgba(0, 0, 0, 0.5);
+    padding: 14px 16px;
+    background: var(--bg-input);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: #a5f3fc;
-    font-family: 'SF Mono', Consolas, monospace;
+    border-radius: var(--radius-md);
+    color: #d8b4fe;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem;
     overflow-x: auto;
     white-space: pre;
-    line-height: 1.55;
+    line-height: 1.7;
   }
 
-  .api-endpoints {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
+  .endpoint-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
   }
 
-  .endpoint {
-    padding: 4px 10px;
-    background: var(--surface-2);
+  .endpoint-card {
+    padding: 14px 16px;
+    background: var(--bg-input);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 0.7rem;
-    font-family: 'SF Mono', Consolas, monospace;
-    color: var(--text-2);
+    border-radius: var(--radius-md);
   }
 
-  .endpoint .method {
+  .endpoint-method {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.65rem;
     font-weight: 700;
-    color: var(--cyan);
-    margin-right: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    margin-right: 8px;
   }
 
-  /* ---------- FOOTER ---------- */
-  .footer {
-    text-align: center;
-    margin-top: 32px;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-    font-size: 0.75rem;
-    color: var(--text-3);
+  .endpoint-method.get { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+  .endpoint-method.post { background: rgba(124, 58, 237, 0.15); color: var(--accent-hi); }
+
+  .endpoint-path {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    font-weight: 600;
   }
 
-  .footer a {
-    color: var(--text-2);
-    text-decoration: none;
-    transition: var(--transition);
+  .endpoint-desc {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 6px;
   }
 
-  .footer a:hover { color: var(--cyan); }
+  /* ============================================================
+     STATS GRID
+     ============================================================ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
 
-  .footer .sep { margin: 0 8px; opacity: 0.4; }
+  .stat-card {
+    padding: 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
 
-  /* ---------- RESPONSIVE ---------- */
-  @media (max-width: 600px) {
-    body { padding: 20px 14px 48px; }
-    h1 { font-size: 1.65rem; }
-    .card { padding: 18px; }
+  .stat-card .value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .stat-card .label {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 6px;
+    font-weight: 600;
+  }
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  .menu-toggle {
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 100;
+      transform: translateX(-100%);
+      transition: transform 0.25s var(--ease);
+      box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .main {
+      padding: 20px 18px 60px;
+    }
+
+    .menu-toggle {
+      display: flex;
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 101;
+      width: 40px;
+      height: 40px;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hi);
+      border-radius: 10px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 99;
+      backdrop-filter: blur(4px);
+    }
+
+    .overlay.show { display: block; }
+
     .voice-chips { grid-template-columns: 1fr; }
-    .controls-row { grid-template-columns: 1fr; }
-    .selected-bar { flex-wrap: wrap; gap: 6px; }
   }
-
-  /* ---------- ANIMATIONS ---------- */
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .card {
-    animation: fadeIn 0.4s ease-out both;
-  }
-  .card:nth-child(2) { animation-delay: 0.05s; }
-  .card:nth-child(3) { animation-delay: 0.1s; }
-  .card:nth-child(4) { animation-delay: 0.15s; }
 </style>
 </head>
 <body>
-<div class="container">
 
-  <!-- ---------- HEADER ---------- -->
-  <div class="header">
-    <div class="logo">
-      <div class="logo-mark">🎙️</div>
-      <h1>VoiceKit</h1>
-    </div>
-    <p class="tagline">Your voice, in code.</p>
-    <div class="badges">
-      <span class="badge">54 voices</span>
-      <span class="badge">9 languages</span>
-      <span class="badge">Free</span>
-    </div>
-  </div>
+<!-- Mobile menu toggle -->
+<button class="menu-toggle" id="menuToggle" aria-label="Menu">☰</button>
+<div class="overlay" id="overlay"></div>
 
-  <!-- ---------- INPUT CARD ---------- -->
-  <div class="card">
-    <div class="input-header">
-      <span class="label">Text to speak</span>
-      <span class="char-count" id="charCount">0 / 800</span>
-    </div>
-
-    <textarea id="text" maxlength="800" placeholder="Type anything up to 800 characters...">Listen closely. You can barely tell this is not me talking.</textarea>
-
-    <div class="quick">
-      <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
-      <button data-p="Hello world, this is my voice.">Hello world</button>
-      <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
-      <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
-      <button data-p="The night is young and the bass is deep.">Night vibe</button>
+<!-- ============================================================
+     SIDEBAR
+     ============================================================ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">🎙️</div>
+    <div class="brand-text">
+      <span class="brand-name">VoiceKit</span>
+      <span class="brand-version">v1.0</span>
     </div>
   </div>
 
-  <!-- ---------- VOICE CARD ---------- -->
-  <div class="card">
-    <div class="input-header">
-      <span class="label">Choose voice</span>
+  <div class="nav-section">
+    <div class="nav-label">Workspace</div>
+    <button class="nav-btn active" data-view="generate">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="22"></line>
+      </svg>
+      Generate
+    </button>
+    <button class="nav-btn" data-view="voices">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h3l3-9 6 18 3-9h3"></path>
+      </svg>
+      Voices
+      <span class="nav-badge" id="voiceCountBadge">54</span>
+    </button>
+    <button class="nav-btn" data-view="history">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      History
+    </button>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-label">Developers</div>
+    <button class="nav-btn" data-view="api">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="16 18 22 12 16 6"></polyline>
+        <polyline points="8 6 2 12 8 18"></polyline>
+      </svg>
+      API Reference
+    </button>
+    <button class="nav-btn" data-view="about">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="16" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+      </svg>
+      About
+    </button>
+  </div>
+
+  <div class="sidebar-footer">
+    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank" rel="noopener">Space</a>
+    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener">Kokoro-82M</a>
+  </div>
+</aside>
+
+<!-- ============================================================
+     MAIN CONTENT
+     ============================================================ -->
+<main class="main">
+
+  <!-- ---------- VIEW: GENERATE ---------- -->
+  <section class="view active" id="view-generate">
+    <div class="view-header">
+      <h1 class="view-title">Generate Speech</h1>
+      <p class="view-subtitle">Turn text into natural audio with 54 voices.</p>
     </div>
 
-    <div class="voice-picker">
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="value">54</div>
+        <div class="label">Voices</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">9</div>
+        <div class="label">Languages</div>
+      </div>
+      <div class="stat-card">
+        <div class="value">Free</div>
+        <div class="label">Forever</div>
+      </div>
+    </div>
+
+    <!-- Text input -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Text to speak</span>
+        <span class="card-hint" id="charCount">0 / 800</span>
+      </div>
+      <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not me talking.</textarea>
+      <div class="quick">
+        <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
+        <button data-p="Hello world, this is my voice.">Hello world</button>
+        <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
+        <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
+        <button data-p="The night is young and the bass is deep.">Night vibe</button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card">
+      <div class="speed-row">
+        <span class="speed-label">Speed</span>
+        <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
+        <span class="speed-value" id="speedVal">1.00×</span>
+      </div>
+
+      <button class="speak-btn" id="speakBtn">
+        <span id="speakBtnContent">🔊 Speak</span>
+      </button>
+
+      <div class="status" id="status">Ready. Pick a voice and hit Speak (Ctrl+Enter).</div>
+      <audio id="player" controls></audio>
+    </div>
+  </section>
+
+  <!-- ---------- VIEW: VOICES ---------- -->
+  <section class="view" id="view-voices">
+    <div class="view-header">
+      <h1 class="view-title">Voices</h1>
+      <p class="view-subtitle">Browse, filter, and preview all 54 voices.</p>
+    </div>
+
+    <div class="card">
       <div class="search-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle>
           <path d="m21 21-4.35-4.35"></path>
         </svg>
-        <input type="text" id="voiceSearch" placeholder="Search voices by name or ID..." autocomplete="off">
+        <input type="text" id="voiceSearch" placeholder="Search voices..." autocomplete="off">
       </div>
 
       <div class="filter-row" id="voiceFilter">
@@ -868,53 +1119,69 @@
       </div>
 
       <div class="selected-bar">
+        <span class="status-dot"></span>
         <span class="label">Selected</span>
         <span class="name" id="selectedName">Adam</span>
         <span class="id" id="selectedId">am_adam</span>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ---------- CONTROLS CARD ---------- -->
-  <div class="card">
-    <div class="controls-row">
-      <div class="speed-control">
-        <label>Speed</label>
-        <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
+  <!-- ---------- VIEW: HISTORY ---------- -->
+  <section class="view" id="view-history">
+    <div class="view-header">
+      <h1 class="view-title">History</h1>
+      <p class="view-subtitle">Your recent generations in this session.</p>
+    </div>
+
+    <div class="card">
+      <div id="history">
+        <div class="empty">Nothing here yet — try generating some speech.</div>
       </div>
-      <div class="speed-value" id="speedVal">1.00×</div>
+    </div>
+  </section>
+
+  <!-- ---------- VIEW: API ---------- -->
+  <section class="view" id="view-api">
+    <div class="view-header">
+      <h1 class="view-title">API Reference</h1>
+      <p class="view-subtitle">Integrate VoiceKit into your apps. Simple HTTP, no SDK required.</p>
     </div>
 
-    <button class="speak-btn" id="speakBtn">🔊 Speak</button>
-
-    <div class="status" id="status">Ready. Pick a voice and hit Speak (Ctrl+Enter).</div>
-
-    <audio id="player" controls></audio>
-  </div>
-
-  <!-- ---------- HISTORY CARD ---------- -->
-  <div class="card">
-    <div class="input-header">
-      <span class="label">Recent generations</span>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Endpoints</span>
+      </div>
+      <div class="endpoint-grid">
+        <div class="endpoint-card">
+          <div><span class="endpoint-method post">POST</span><span class="endpoint-path">/speak</span></div>
+          <div class="endpoint-desc">Generate speech. Returns WAV audio.</div>
+        </div>
+        <div class="endpoint-card">
+          <div><span class="endpoint-method get">GET</span><span class="endpoint-path">/voices</span></div>
+          <div class="endpoint-desc">List all available voices.</div>
+        </div>
+        <div class="endpoint-card">
+          <div><span class="endpoint-method get">GET</span><span class="endpoint-path">/voices/catalog</span></div>
+          <div class="endpoint-desc">Voices organized by language and gender.</div>
+        </div>
+        <div class="endpoint-card">
+          <div><span class="endpoint-method get">GET</span><span class="endpoint-path">/health</span></div>
+          <div class="endpoint-desc">Service health and cache status.</div>
+        </div>
+      </div>
     </div>
-    <div id="history">
-      <div class="empty">None yet.</div>
-    </div>
-  </div>
 
-  <!-- ---------- API CARD ---------- -->
-  <div class="card">
-    <div class="api-toggle" id="apiToggle">
-      <h3>⚡ API — Use it in your app</h3>
-      <span class="api-toggle-icon">▼</span>
-    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Quick Start</span>
+      </div>
 
-    <div class="api-body" id="apiBody">
       <div class="api-block">
-        <div class="api-label"><strong>POST /speak</strong> — generate speech</div>
+        <div class="api-label"><strong>curl</strong></div>
         <code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"Listen closely. You can barely tell this is not me talking.","voice":"am_adam","speed":1.0}' \
+  -d '{"text":"Hello world","voice":"am_adam","speed":1.0}' \
   -o voice.wav</code>
       </div>
 
@@ -922,53 +1189,81 @@
         <div class="api-label"><strong>Python</strong></div>
         <code class="api-code">import requests
 
-r = requests.post("https://voicekit-prod.vercel.app/speak", json={
-    "text": "Listen closely. You can barely tell this is not me talking.",
-    "voice": "am_adam",
-    "speed": 1.0,
-})
-open("voice.wav", "wb").write(r.content)</code>
+response = requests.post(
+    "https://voicekit-prod.vercel.app/speak",
+    json={
+        "text": "Hello world",
+        "voice": "am_adam",
+        "speed": 1.0,
+    },
+)
+
+with open("voice.wav", "wb") as f:
+    f.write(response.content)</code>
       </div>
 
       <div class="api-block">
         <div class="api-label"><strong>JavaScript</strong></div>
-        <code class="api-code">const res = await fetch("https://voicekit-prod.vercel.app/speak", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    text: "Listen closely. You can barely tell this is not me talking.",
-    voice: "am_adam",
-    speed: 1.0
-  })
-});
-const blob = await res.blob();
+        <code class="api-code">const response = await fetch(
+  "https://voicekit-prod.vercel.app/speak",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text: "Hello world",
+      voice: "am_adam",
+      speed: 1.0,
+    }),
+  }
+);
+
+const blob = await response.blob();
 new Audio(URL.createObjectURL(blob)).play();</code>
       </div>
+    </div>
+  </section>
 
-      <div class="api-endpoints">
-        <span class="endpoint"><span class="method">POST</span>/speak</span>
-        <span class="endpoint"><span class="method">GET</span>/voices</span>
-        <span class="endpoint"><span class="method">GET</span>/voices/catalog</span>
-        <span class="endpoint"><span class="method">GET</span>/health</span>
+  <!-- ---------- VIEW: ABOUT ---------- -->
+  <section class="view" id="view-about">
+    <div class="view-header">
+      <h1 class="view-title">About VoiceKit</h1>
+      <p class="view-subtitle">Free, fast, natural text-to-speech for everyone.</p>
+    </div>
+
+    <div class="card">
+      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
+        VoiceKit is a text-to-speech interface built on top of the open-source
+        Kokoro-82M model. It runs on Hugging Face Spaces and is proxied through
+        Vercel for fast global delivery.
+      </p>
+      <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 16px;">
+        All 54 voices are available in 9 languages. The API is free and public —
+        no signup, no key, no rate limit beyond the Space's queue.
+      </p>
+      <p style="color: var(--text-dim); font-size: 0.85rem; line-height: 1.7;">
+        Built with Flask, ONNX, and Kokoro-82M. Made with care.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Links</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Hugging Face Space →</a>
+        <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0; border-bottom: 1px solid var(--border);">Kokoro-82M Model →</a>
+        <a href="https://voicekit-prod.vercel.app/voices" target="_blank" rel="noopener" style="color: var(--accent-hi); text-decoration: none; font-size: 0.85rem; padding: 8px 0;">Voice Catalog API →</a>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ---------- FOOTER ---------- -->
-  <div class="footer">
-    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank">Space</a>
-    <span class="sep">·</span>
-    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank">Kokoro-82M</a>
-    <span class="sep">·</span>
-    <a href="https://voicekit-prod.vercel.app/voices" target="_blank">API</a>
-  </div>
-</div>
+</main>
 
 <script>
 // ============================================================
 // CONFIG
 // ============================================================
-const API_URL = "";   // same origin — Flask serves both UI and API
+const API_URL = "";
 
 // ============================================================
 // STATE
@@ -983,22 +1278,59 @@ const history = [];
 // ============================================================
 // ELEMENTS
 // ============================================================
-const textEl       = document.getElementById('text');
-const speedEl      = document.getElementById('speed');
-const speedVal     = document.getElementById('speedVal');
-const speakBtn     = document.getElementById('speakBtn');
-const statusEl     = document.getElementById('status');
-const player       = document.getElementById('player');
-const historyEl    = document.getElementById('history');
-const charCount    = document.getElementById('charCount');
-const voiceList    = document.getElementById('voiceList');
-const voiceSearch  = document.getElementById('voiceSearch');
-const voiceFilter  = document.getElementById('voiceFilter');
-const voiceCount   = document.getElementById('voiceCount');
-const selectedName = document.getElementById('selectedName');
-const selectedId   = document.getElementById('selectedId');
-const apiToggle    = document.getElementById('apiToggle');
-const apiBody      = document.getElementById('apiBody');
+const textEl          = document.getElementById('text');
+const speedEl         = document.getElementById('speed');
+const speedVal        = document.getElementById('speedVal');
+const speakBtn        = document.getElementById('speakBtn');
+const speakBtnContent = document.getElementById('speakBtnContent');
+const statusEl        = document.getElementById('status');
+const player          = document.getElementById('player');
+const historyEl       = document.getElementById('history');
+const charCount       = document.getElementById('charCount');
+const voiceList       = document.getElementById('voiceList');
+const voiceSearch     = document.getElementById('voiceSearch');
+const voiceFilter     = document.getElementById('voiceFilter');
+const voiceCount      = document.getElementById('voiceCount');
+const voiceCountBadge = document.getElementById('voiceCountBadge');
+const selectedName    = document.getElementById('selectedName');
+const selectedId      = document.getElementById('selectedId');
+const sidebar         = document.getElementById('sidebar');
+const menuToggle      = document.getElementById('menuToggle');
+const overlay         = document.getElementById('overlay');
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.onclick = () => {
+    const view = btn.dataset.view;
+
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById('view-' + view);
+    if (target) target.classList.add('active');
+
+    // Close mobile sidebar
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+
+    // Scroll top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+});
+
+// Mobile sidebar toggle
+menuToggle.onclick = () => {
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('show');
+};
+
+overlay.onclick = () => {
+  sidebar.classList.remove('open');
+  overlay.classList.remove('show');
+};
 
 // ============================================================
 // HELPERS
@@ -1015,12 +1347,11 @@ speedEl.oninput = () => {
 textEl.oninput = () => {
   const len = textEl.value.length;
   charCount.textContent = len + ' / 800';
-  charCount.className = 'char-count';
+  charCount.className = 'card-hint';
   if (len > 700) charCount.classList.add('warn');
   if (len >= 800) charCount.classList.add('over');
 };
 
-// Trigger initial count
 textEl.oninput();
 
 document.querySelectorAll('.quick button').forEach(btn => {
@@ -1032,25 +1363,17 @@ document.querySelectorAll('.quick button').forEach(btn => {
 });
 
 // ============================================================
-// API TOGGLE
-// ============================================================
-apiToggle.onclick = () => {
-  apiToggle.classList.toggle('open');
-  apiBody.classList.toggle('open');
-};
-
-// ============================================================
-// LOAD VOICES FROM API
+// LOAD VOICES
 // ============================================================
 async function loadVoices() {
   try {
     const res = await fetch('/voices/catalog');
-    if (!res.ok) throw new Error('Failed to load catalog');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     voiceCatalog = await res.json();
     renderVoicePicker();
     updateVoiceCount();
   } catch (e) {
-    voiceList.innerHTML = '<div class="empty" style="color:#f87171;">Failed to load voices: ' + e.message + '</div>';
+    voiceList.innerHTML = '<div class="empty" style="color:#ef4444;">Failed to load voices: ' + e.message + '</div>';
   }
 }
 
@@ -1078,7 +1401,7 @@ function renderVoicePicker() {
 
       const row = document.createElement('div');
       row.className = 'voice-chips';
-      row.innerHTML = '<div class="voice-gender-label" style="grid-column:1/-1;">' + gender + '</div>';
+      row.innerHTML = '<div class="voice-gender-label">' + gender + '</div>';
 
       voices.forEach(v => {
         const [id, name, desc] = v;
@@ -1094,7 +1417,7 @@ function renderVoicePicker() {
             '<span class="chip-name">' + name + '</span>' +
             '<span class="chip-desc">' + desc + '</span>' +
           '</div>' +
-          '<button class="chip-play" data-id="' + id + '" title="Preview">▶</button>';
+          '<button class="chip-play" data-id="' + id + '" aria-label="Preview">▶</button>';
 
         chip.onclick = (e) => {
           if (e.target.closest('.chip-play')) return;
@@ -1129,10 +1452,13 @@ function selectVoice(id, name, chip) {
 function updateVoiceCount() {
   const visible = document.querySelectorAll('.voice-chip:not(.hidden)').length;
   voiceCount.textContent = visible + ' voice' + (visible === 1 ? '' : 's');
+  if (voiceCountBadge && currentFilter === 'all' && !currentSearch) {
+    voiceCountBadge.textContent = visible;
+  }
 }
 
 // ============================================================
-// SEARCH + FILTER
+// FILTERS
 // ============================================================
 voiceSearch.oninput = (e) => {
   currentSearch = e.target.value.toLowerCase().trim();
@@ -1178,7 +1504,7 @@ function applyFilters() {
 // ============================================================
 async function previewVoice(voiceId, btn) {
   if (btn) {
-    btn.textContent = '⏳';
+    btn.textContent = '⋯';
     btn.classList.add('playing');
   }
 
@@ -1228,9 +1554,8 @@ async function speak() {
   const speed = parseFloat(speedEl.value);
 
   speakBtn.disabled = true;
-  speakBtn.textContent = '⏳ Generating...';
-  speakBtn.classList.add('generating');
-  setStatus('Generating...', 'busy');
+  speakBtnContent.innerHTML = '<span class="spinner"></span> Generating...';
+  setStatus('Generating audio...', 'busy');
 
   const t0 = performance.now();
 
@@ -1264,8 +1589,7 @@ async function speak() {
     setStatus('Error: ' + e.message, 'err');
   } finally {
     speakBtn.disabled = false;
-    speakBtn.textContent = '🔊 Speak';
-    speakBtn.classList.remove('generating');
+    speakBtnContent.textContent = '🔊 Speak';
   }
 }
 
@@ -1274,13 +1598,14 @@ async function speak() {
 // ============================================================
 function renderHistory() {
   if (!history.length) {
-    historyEl.innerHTML = '<div class="empty">None yet.</div>';
+    historyEl.innerHTML = '<div class="empty">Nothing here yet — try generating some speech.</div>';
     return;
   }
+
   historyEl.innerHTML = '';
   history.forEach(h => {
     const ts = new Date(h.ts).toLocaleTimeString();
-    const preview = h.text.length > 70 ? h.text.substring(0, 70) + '…' : h.text;
+    const preview = h.text.length > 80 ? h.text.substring(0, 80) + '…' : h.text;
 
     const row = document.createElement('div');
     row.className = 'history-item';
@@ -1296,6 +1621,7 @@ function renderHistory() {
       player.classList.add('show');
       player.play();
     };
+
     historyEl.appendChild(row);
   });
 }

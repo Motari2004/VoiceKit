@@ -3,1182 +3,1225 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VoiceKit — Text to Speech</title>
-<meta name="description" content="Text-to-speech for developers who ship. 54 voices, 9 languages, one endpoint.">
+<title>VoiceKit — Neural Text to Speech Studio</title>
+<meta name="description" content="Next-generation natural text-to-speech with 54 studio voices. Fast, offline-capable, developer-ready.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎙️</text></svg>">
-<style>
-  * { box-sizing: border-box; }
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+<style>
   :root {
-    --bg-deep: #050508;
-    --bg-mid: #0e1e2e;
+    --bg-0: #030408;
+    --bg-1: #070913;
+    --bg-2: #0e1224;
+    
+    --surface: rgba(18, 24, 43, 0.7);
+    --surface-hover: rgba(26, 34, 60, 0.8);
+    --surface-glass: rgba(255, 255, 255, 0.02);
+    
+    --border: rgba(255, 255, 255, 0.06);
+    --border-bright: rgba(34, 211, 238, 0.3);
+    
     --cyan: #22d3ee;
-    --purple: #8b5cf6;
+    --cyan-glow: rgba(34, 211, 238, 0.25);
+    --purple: #a855f7;
+    --purple-glow: rgba(168, 85, 247, 0.25);
+    --pink: #ec4899;
     --green: #34d399;
-    --red: #f87171;
     --amber: #fbbf24;
-    --text: #eee;
-    --text-dim: #888;
-    --surface: rgba(255,255,255,0.03);
-    --surface-hover: rgba(255,255,255,0.06);
-    --border: rgba(255,255,255,0.08);
-    --border-strong: rgba(255,255,255,0.12);
+    --red: #f87171;
+
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --text-dim: #6b7280;
+
+    --radius-lg: 20px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    
+    --transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg-0);
+    color: var(--text-main);
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
   body {
-    margin: 0; min-height: 100vh;
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: radial-gradient(circle at top, var(--bg-mid), var(--bg-deep) 70%);
-    color: var(--text);
-    padding: 24px;
-    line-height: 1.5;
+    background-image: 
+      radial-gradient(circle at 10% 10%, rgba(34, 211, 238, 0.08), transparent 40%),
+      radial-gradient(circle at 90% 20%, rgba(168, 85, 247, 0.08), transparent 40%),
+      radial-gradient(circle at 50% 90%, rgba(236, 72, 153, 0.05), transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.04), transparent 30%);
+    background-attachment: fixed;
+    padding: 48px 20px 80px;
   }
 
-  .container { max-width: 800px; margin: 0 auto; }
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+  }
 
   /* ---------- HEADER ---------- */
-  header { text-align: center; margin-bottom: 32px; }
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  .logo-mark {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    box-shadow: 0 8px 32px var(--cyan-glow);
+    position: relative;
+  }
+
+  .logo-mark::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.4), transparent);
+    pointer-events: none;
+  }
+
   h1 {
-    font-size: 2.4rem;
-    margin: 0 0 6px;
-    letter-spacing: -0.02em;
-    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    font-size: 2.5rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, #fff 30%, var(--cyan) 70%, var(--purple));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
   .tagline {
-    color: var(--text-dim);
-    font-size: 0.95rem;
-    margin: 0 0 8px;
-  }
-  .badge {
-    display: inline-block;
-    padding: 4px 12px;
-    background: rgba(34,211,238,0.1);
-    border: 1px solid rgba(34,211,238,0.3);
-    color: var(--cyan);
-    border-radius: 12px;
-    font-size: 0.7rem;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-weight: 500;
+    margin-top: 4px;
   }
 
-  /* ---------- CARD ---------- */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 24px;
-    margin-bottom: 20px;
+  .badges {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(34, 211, 238, 0.06);
+    border: 1px solid rgba(34, 211, 238, 0.18);
+    border-radius: 30px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--cyan);
+    text-transform: uppercase;
     backdrop-filter: blur(10px);
   }
 
-  /* ---------- FORM ---------- */
-  label {
-    display: block;
-    font-size: 0.75rem;
-    color: #bbb;
-    margin-bottom: 6px;
-    margin-top: 16px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-  }
-  label:first-of-type { margin-top: 0; }
-
-  textarea, select, input[type=range] {
-    width: 100%;
-    font-family: inherit;
-    outline: none;
+  .badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    background: var(--cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--cyan);
   }
 
-  textarea, select {
-    padding: 12px 14px;
-    background: rgba(0,0,0,0.4);
-    border: 1px solid var(--border-strong);
-    border-radius: 8px;
-    color: #fff;
-    font-size: 0.95rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-
-  textarea:focus, select:focus {
-    border-color: var(--cyan);
-    box-shadow: 0 0 0 3px rgba(34,211,238,0.1);
-  }
-
-  textarea {
-    resize: vertical;
-    min-height: 100px;
-    line-height: 1.5;
-  }
-
-  select {
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 36px;
-  }
-
-  select option {
-    background: #0e1e2e;
-    color: #eee;
-  }
-
-  .row { display: flex; gap: 14px; }
-  .row > div { flex: 1; }
-  @media (max-width: 560px) { .row { flex-direction: column; gap: 0; } }
-
-  /* ---------- SPEED SLIDER ---------- */
-  .speed-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 8px 0;
-  }
-  .speed-row input[type=range] {
-    flex: 1;
-    accent-color: var(--cyan);
-    cursor: pointer;
-  }
-  .speed-row span {
-    font-size: 0.85rem;
-    color: var(--cyan);
-    min-width: 55px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-
-  /* ---------- BUTTONS ---------- */
-  button {
-    padding: 14px 24px;
-    border-radius: 10px;
-    border: none;
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 0.95rem;
-    font-family: inherit;
-    transition: all 0.15s;
-  }
-
-  .btn-primary {
-    background: linear-gradient(90deg, var(--cyan), var(--purple));
-    color: #0a0a0f;
-    width: 100%;
-    margin-top: 20px;
-    letter-spacing: 0.01em;
-  }
-  .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(34,211,238,0.25);
-  }
-  .btn-primary:active:not(:disabled) { transform: translateY(0); }
-  .btn-primary:disabled { opacity: 0.5; cursor: wait; }
-
-  /* ---------- STATUS ---------- */
-  .status {
-    margin-top: 16px;
-    padding: 12px 14px;
-    background: rgba(0,0,0,0.3);
-    border-radius: 8px;
-    font-size: 0.82rem;
-    color: #9ca3af;
-    font-family: 'Consolas', 'Monaco', monospace;
-    min-height: 22px;
-    transition: color 0.2s;
-  }
-  .status.ok { color: var(--green); }
-  .status.err { color: var(--red); }
-  .status.busy { color: var(--amber); }
-
-  /* ---------- AUDIO PLAYER ---------- */
-  audio {
-    width: 100%;
-    margin-top: 16px;
-    display: none;
-    border-radius: 8px;
-  }
-  audio.show { display: block; }
-
-  /* ---------- QUICK PHRASES ---------- */
-  .quick-phrases {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-  }
-  .quick-phrases button {
-    padding: 5px 12px;
-    font-size: 0.72rem;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.06);
+  /* ---------- CARD SYSTEM ---------- */
+  .card {
+    background: var(--surface);
     border: 1px solid var(--border);
-    color: #ccc;
-    font-weight: 500;
-    cursor: pointer;
-  }
-  .quick-phrases button:hover {
-    background: rgba(34,211,238,0.12);
-    border-color: rgba(34,211,238,0.4);
-    color: #fff;
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: var(--transition);
   }
 
-  /* ---------- HISTORY ---------- */
-  .history { margin-top: 4px; }
-  .history-item {
-    padding: 10px 12px;
-    margin-bottom: 6px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 8px;
-    font-size: 0.78rem;
-    color: #bbb;
+  .card:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  /* ---------- INPUT & AREA ---------- */
+  .input-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    transition: background 0.15s;
+    margin-bottom: 12px;
   }
-  .history-item:hover { background: rgba(0,0,0,0.3); }
-  .history-item .text {
+
+  .label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .char-count {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .char-count.warn { color: var(--amber); }
+  .char-count.over { color: var(--red); }
+
+  textarea {
+    width: 100%;
+    padding: 18px;
+    background: rgba(3, 4, 8, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-main);
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 130px;
+    outline: none;
+    transition: var(--transition);
+    line-height: 1.6;
+  }
+
+  textarea:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 4px var(--cyan-glow);
+    background: rgba(3, 4, 8, 0.8);
+  }
+
+  textarea::placeholder { color: var(--text-dim); }
+
+  /* ---------- QUICK PRESETS ---------- */
+  .quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .quick button {
+    padding: 6px 14px;
+    background: var(--surface-glass);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .quick button:hover {
+    background: rgba(34, 211, 238, 0.08);
+    border-color: var(--border-bright);
+    color: var(--cyan);
+    transform: translateY(-1px);
+  }
+
+  /* ---------- VOICE PICKER ---------- */
+  .voice-picker { margin-top: 8px; }
+
+  .search-wrap {
+    position: relative;
+    margin-bottom: 12px;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+
+  #voiceSearch {
+    width: 100%;
+    padding: 12px 16px 12px 44px;
+    background: rgba(3, 4, 8, 0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-main);
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: var(--transition);
+  }
+
+  #voiceSearch:focus {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 4px var(--cyan-glow);
+  }
+
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .filter-chip {
+    padding: 6px 14px;
+    background: var(--surface-glass);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  .filter-chip:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+  }
+
+  .filter-chip.active {
+    background: rgba(34, 211, 238, 0.12);
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+  }
+
+  .voice-count {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-align: right;
+    margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .voice-list {
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-bottom: 16px;
+  }
+
+  .voice-list::-webkit-scrollbar { width: 6px; }
+  .voice-list::-webkit-scrollbar-track { background: transparent; }
+  .voice-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+  }
+  .voice-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .voice-lang { margin-bottom: 20px; }
+  .voice-lang.hidden { display: none; }
+
+  .voice-lang-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--cyan);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.1);
+  }
+
+  .voice-lang-header::before {
+    content: "";
+    width: 3px;
+    height: 12px;
+    background: var(--cyan);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  .voice-gender-label {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 12px 0 8px;
+    font-weight: 700;
+  }
+
+  .voice-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 8px;
+  }
+
+  .voice-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .voice-chip.hidden { display: none; }
+
+  .voice-chip:hover {
+    background: rgba(34, 211, 238, 0.04);
+    border-color: rgba(34, 211, 238, 0.25);
+    transform: translateY(-2px);
+  }
+
+  .voice-chip.selected {
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.12), rgba(168, 85, 247, 0.1));
+    border-color: var(--cyan);
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+  }
+
+  .voice-chip.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 0.65rem;
+    color: var(--cyan);
+    font-weight: 800;
+  }
+
+  .chip-content {
     flex: 1;
+    min-width: 0;
+  }
+
+  .chip-name {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-main);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .history-item .meta {
-    color: #666;
-    font-size: 0.7rem;
-    margin-top: 3px;
-  }
-  .history-item button {
-    padding: 5px 12px;
-    font-size: 0.7rem;
-    background: rgba(34,211,238,0.15);
-    color: var(--cyan);
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-  }
-  .history-item button:hover {
-    background: rgba(34,211,238,0.25);
   }
 
-  /* ---------- API DOCS ---------- */
-  .api-section {
-    margin-top: 0;
-    padding: 16px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 10px;
-    font-size: 0.8rem;
-    font-family: 'Consolas', 'Monaco', monospace;
+  .chip-desc {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
   }
-  .api-section h3 {
-    margin: 0 0 10px;
-    font-size: 0.85rem;
+
+  .chip-play {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(34, 211, 238, 0.08);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 50%;
     color: var(--cyan);
-    font-family: 'Segoe UI', sans-serif;
+    cursor: pointer;
+    font-size: 0.55rem;
+    padding: 0;
+    transition: var(--transition);
+  }
+
+  .chip-play:hover {
+    background: var(--cyan);
+    color: #000;
+    transform: scale(1.15);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+
+  .chip-play.playing {
+    background: var(--cyan);
+    color: #000;
+    animation: pulse-play 1s infinite;
+  }
+
+  @keyframes pulse-play {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 0 12px rgba(34, 211, 238, 0.8); }
+  }
+
+  /* ---------- SELECTED BAR ---------- */
+  .selected-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.06), rgba(168, 85, 247, 0.06));
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: var(--radius-sm);
+  }
+
+  .selected-bar .label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  .selected-bar .name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .selected-bar .id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--cyan);
+    background: rgba(34, 211, 238, 0.08);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  /* ---------- CONTROLS & SPEAK BUTTON ---------- */
+  .controls-row {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 4px;
+  }
+
+  .speed-control {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(3, 4, 8, 0.3);
+    padding: 14px 18px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .speed-control label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    min-width: 50px;
+  }
+
+  input[type=range] {
+    flex: 1;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    outline: none;
+    accent-color: var(--cyan);
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--cyan);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 12px var(--cyan);
+    transition: var(--transition);
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 18px var(--cyan);
+  }
+
+  .speed-value {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--cyan);
+    min-width: 55px;
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .speak-btn {
+    width: 100%;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    border: none;
+    border-radius: var(--radius-md);
+    color: #030408;
+    font-size: 1rem;
+    font-weight: 800;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 8px 32px var(--cyan-glow);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .speak-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(255,255,255,0.2), transparent);
+    opacity: 0;
+    transition: var(--transition);
+  }
+
+  .speak-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(34, 211, 238, 0.4);
+  }
+
+  .speak-btn:hover:not(:disabled)::after { opacity: 1; }
+  .speak-btn:active:not(:disabled) { transform: translateY(0); }
+
+  .speak-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .speak-btn.generating {
+    animation: pulse-btn 1.5s infinite;
+  }
+
+  @keyframes pulse-btn {
+    0%, 100% { box-shadow: 0 8px 32px var(--cyan-glow); }
+    50% { box-shadow: 0 8px 48px rgba(168, 85, 247, 0.6); }
+  }
+
+  /* ---------- STATUS & PLAYER ---------- */
+  .status {
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: rgba(3, 4, 8, 0.4);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 24px;
+    transition: var(--transition);
+  }
+
+  .status.ok { color: var(--green); background: rgba(52, 211, 153, 0.06); border-color: rgba(52, 211, 153, 0.2); }
+  .status.err { color: var(--red); background: rgba(248, 113, 113, 0.06); border-color: rgba(248, 113, 113, 0.2); }
+  .status.busy { color: var(--amber); background: rgba(251, 191, 36, 0.06); border-color: rgba(251, 191, 36, 0.2); }
+
+  audio {
+    width: 100%;
+    margin-top: 14px;
+    display: none;
+    border-radius: var(--radius-sm);
+  }
+  audio.show { display: block; }
+
+  /* ---------- HISTORY ---------- */
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    background: rgba(3, 4, 8, 0.3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+  }
+
+  .history-item:hover { background: rgba(3, 4, 8, 0.6); border-color: rgba(255, 255, 255, 0.1); }
+  .history-item .info { flex: 1; min-width: 0; }
+
+  .history-item .text {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+
+  .history-item .meta {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-top: 3px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .history-item button {
+    padding: 6px 14px;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.25);
+    border-radius: 6px;
+    color: var(--cyan);
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: var(--transition);
+    flex-shrink: 0;
+  }
+
+  .history-item button:hover {
+    background: rgba(34, 211, 238, 0.25);
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.2);
+  }
+
+  .empty {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+  }
+
+  /* ---------- API SECTION ---------- */
+  .api-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 4px 0;
+    user-select: none;
+  }
+
+  .api-toggle h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .api-toggle-icon {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    transition: transform 0.3s ease;
+  }
+
+  .api-toggle.open .api-toggle-icon {
+    transform: rotate(180deg);
+  }
+
+  .api-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .api-body.open {
+    max-height: 3000px;
+    margin-top: 18px;
+  }
+
+  .api-block { margin-bottom: 16px; }
+
+  .api-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
     font-weight: 600;
   }
-  .api-section code {
+
+  .api-label strong { color: var(--text-main); font-weight: 700; }
+
+  .api-code {
     display: block;
-    padding: 10px 12px;
-    background: rgba(0,0,0,0.5);
-    border-radius: 6px;
-    color: #a5f3fc;
-    font-size: 0.72rem;
-    margin: 6px 0;
+    padding: 14px 16px;
+    background: #020305;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: #38bdf8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
     overflow-x: auto;
     white-space: pre;
-    line-height: 1.5;
+    line-height: 1.6;
   }
-  .api-label {
-    color: #9ca3af;
-    margin: 14px 0 6px;
-    font-family: 'Segoe UI', sans-serif;
-    font-size: 0.78rem;
-  }
-  .api-label:first-of-type { margin-top: 0; }
-  .api-label strong { color: #ddd; }
 
-  /* ---------- EMPTY STATE ---------- */
-  .empty {
-    color: #555;
-    font-size: 0.8rem;
-    font-style: italic;
-    padding: 8px 0;
+  .api-endpoints {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .endpoint {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  .endpoint .method {
+    font-weight: 700;
+    color: var(--cyan);
+    margin-right: 6px;
   }
 
   /* ---------- FOOTER ---------- */
-  footer {
+  .footer {
     text-align: center;
-    color: #444;
-    font-size: 0.75rem;
-    padding: 20px 0;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-dim);
   }
-  footer a {
-    color: #666;
+
+  .footer a {
+    color: var(--text-muted);
     text-decoration: none;
+    transition: var(--transition);
+    font-weight: 500;
   }
-  footer a:hover { color: var(--cyan); }
 
-  /* ---------- ANIMATION ---------- */
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  .footer a:hover { color: var(--cyan); text-shadow: 0 0 8px var(--cyan-glow); }
+  .footer .sep { margin: 0 10px; opacity: 0.3; }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 640px) {
+    body { padding: 20px 12px 60px; }
+    h1 { font-size: 2rem; }
+    .card { padding: 20px; }
+    .voice-chips { grid-template-columns: 1fr; }
   }
-  .pulse { animation: pulse 1.5s ease-in-out infinite; }
 
-/* ============================================================
-   VOICE PICKER
-   ============================================================ */
-.voice-picker {
-  margin-top: 6px;
-}
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
-.voice-search-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.voice-search {
-  flex: 1;
-  position: relative;
-}
-
-.voice-search input {
-  width: 100%;
-  padding: 10px 14px 10px 36px;
-  background: rgba(0,0,0,0.4);
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 0.85rem;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-.voice-search input:focus {
-  border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(34,211,238,0.1);
-}
-.voice-search::before {
-  content: "🔍";
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.8rem;
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-.voice-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 12px;
-}
-
-.filter-chip {
-  padding: 5px 12px;
-  font-size: 0.72rem;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  color: #bbb;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
-  font-weight: 500;
-}
-.filter-chip:hover {
-  background: rgba(34,211,238,0.1);
-  border-color: rgba(34,211,238,0.3);
-  color: #ddd;
-}
-.filter-chip.active {
-  background: rgba(34,211,238,0.15);
-  border-color: var(--cyan);
-  color: var(--cyan);
-  font-weight: 600;
-}
-
-.voice-list {
-  max-height: 380px;
-  overflow-y: auto;
-  padding-right: 4px;
-  margin-bottom: 12px;
-}
-.voice-list::-webkit-scrollbar { width: 6px; }
-.voice-list::-webkit-scrollbar-track { background: transparent; }
-.voice-list::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.1);
-  border-radius: 3px;
-}
-.voice-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.2);
-}
-
-.voice-lang {
-  margin-bottom: 16px;
-}
-.voice-lang.hidden { display: none; }
-
-.voice-lang-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--cyan);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(34,211,238,0.15);
-}
-.voice-lang-header::before {
-  content: "";
-  width: 3px;
-  height: 12px;
-  background: var(--cyan);
-  border-radius: 2px;
-}
-
-.voice-gender-label {
-  font-size: 0.62rem;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin: 10px 0 6px;
-  font-weight: 600;
-}
-
-.voice-chips {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 6px;
-}
-
-.voice-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s;
-  position: relative;
-  overflow: hidden;
-}
-.voice-chip.hidden { display: none; }
-.voice-chip:hover {
-  background: rgba(34,211,238,0.08);
-  border-color: rgba(34,211,238,0.3);
-  transform: translateY(-1px);
-}
-.voice-chip.selected {
-  background: linear-gradient(135deg, rgba(34,211,238,0.15), rgba(139,92,246,0.15));
-  border-color: var(--cyan);
-  box-shadow: 0 0 12px rgba(34,211,238,0.15);
-}
-.voice-chip.selected::before {
-  content: "✓";
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  font-size: 0.6rem;
-  color: var(--cyan);
-  font-weight: 700;
-}
-
-.chip-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.chip-name {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #ddd;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.voice-chip.selected .chip-name { color: #fff; }
-
-.chip-desc {
-  font-size: 0.65rem;
-  color: #777;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 1px;
-}
-
-.chip-play {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: rgba(34,211,238,0.12);
-  border: 1px solid rgba(34,211,238,0.2);
-  color: var(--cyan);
-  cursor: pointer;
-  font-size: 0.55rem;
-  padding: 0;
-  transition: all 0.15s;
-}
-.chip-play:hover {
-  background: rgba(34,211,238,0.3);
-  transform: scale(1.1);
-}
-.chip-play.playing {
-  background: var(--cyan);
-  color: #000;
-  animation: pulse-chip 1s infinite;
-}
-@keyframes pulse-chip {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(34,211,238,0); }
-}
-
-.voice-selected-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(139,92,246,0.1));
-  border: 1px solid rgba(34,211,238,0.3);
-  border-radius: 10px;
-  font-size: 0.82rem;
-}
-.voice-selected-bar .label { color: #999; font-size: 0.72rem; }
-.voice-selected-bar .name { color: #fff; font-weight: 700; font-size: 0.9rem; }
-.voice-selected-bar .id {
-  color: var(--cyan);
-  font-family: 'Consolas', monospace;
-  font-size: 0.72rem;
-}
-
-.voice-count {
-  font-size: 0.7rem;
-  color: #666;
-  text-align: right;
-  margin-top: -8px;
-  margin-bottom: 8px;
-}
-
+  .card { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+  .card:nth-child(2) { animation-delay: 0.05s; }
+  .card:nth-child(3) { animation-delay: 0.1s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+  .card:nth-child(5) { animation-delay: 0.2s; }
 </style>
 </head>
 <body>
 <div class="container">
-  <header>
-    <h1>VoiceKit</h1>
-    <p class="tagline">Your voice, in code.</p>
-    <span class="badge">Powered by Kokoro-82M</span>
-  </header>
 
-  <!-- MAIN CARD -->
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">🎙️</div>
+      <h1>VoiceKit</h1>
+    </div>
+    <p class="tagline">Neural Text-to-Speech Studio</p>
+    <div class="badges">
+      <span class="badge">54 Voices</span>
+      <span class="badge">9 Languages</span>
+      <span class="badge">Studio Grade</span>
+    </div>
+  </div>
+
+  <!-- INPUT CARD -->
   <div class="card">
-    <label>What should the voice say?</label>
-    <textarea id="text" maxlength="800" placeholder="Type anything up to 800 characters...">Listen closely. You can barely tell this is not me talking.</textarea>
-
-    <div class="quick-phrases">
-      <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
-      <button data-p="Hello world, this is my voice.">Hello world</button>
-      <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
-      <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
-      <button data-p="The night is young and the bass is deep.">Night vibe</button>
+    <div class="input-header">
+      <span class="label">Text input</span>
+      <span class="char-count" id="charCount">0 / 800</span>
     </div>
 
-    <div class="row">
-      <div>
-        <label>Voice</label>
-        <div style="display:none;"><select id="voice"><option value="am_adam" selected>am_adam</option></select></div>
-<div class="voice-picker">
-  <div class="voice-search-row">
-    <div class="voice-search">
-      <input type="text" id="voiceSearch" placeholder="Search voices by name or ID..." autocomplete="off">
+    <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not a human talking.</textarea>
+
+    <div class="quick">
+      <button data-p="Listen closely. You can barely tell this is not a human talking.">Natural Voice</button>
+      <button data-p="Hello world, welcome to the future of voice generation.">Welcome</button>
+      <button data-p="System update complete. All neural engines are now online and fully operational.">System Update</button>
+      <button data-p="The night is young and the bass is deep.">Atmospheric</button>
+      <button data-p="Eins, zwei, drei, vier. Neural speech synthesis is fast and accurate.">Multilingual</button>
     </div>
   </div>
-  <div class="voice-filter" id="voiceFilter">
-    <button class="filter-chip active" data-filter="all">All</button>
-    <button class="filter-chip" data-filter="male">Male</button>
-    <button class="filter-chip" data-filter="female">Female</button>
-    <button class="filter-chip" data-filter="American English">American</button>
-    <button class="filter-chip" data-filter="British English">British</button>
-  </div>
-  <div class="voice-count" id="voiceCount"></div>
-  <div class="voice-list" id="voiceList">
-    <div class="voice-lang" data-lang="American English">
-      <div class="voice-lang-header">American English</div>
-      <div class="voice-gender-label">Male</div>
-      <div class="voice-chips">
-        <div class="voice-chip selected" data-id="am_adam" data-name="adam" data-lang="American English" data-gender="male" title="Adam — Deep, broadcaster">
-          <div class="chip-content">
-            <span class="chip-name">Adam</span>
-            <span class="chip-desc">Deep, broadcaster</span>
-          </div>
-          <button class="chip-play" data-id="am_adam" title="Preview Adam">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_michael" data-name="michael" data-lang="American English" data-gender="male" title="Michael — Warm, natural">
-          <div class="chip-content">
-            <span class="chip-name">Michael</span>
-            <span class="chip-desc">Warm, natural</span>
-          </div>
-          <button class="chip-play" data-id="am_michael" title="Preview Michael">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_onyx" data-name="onyx" data-lang="American English" data-gender="male" title="Onyx — Rich, resonant">
-          <div class="chip-content">
-            <span class="chip-name">Onyx</span>
-            <span class="chip-desc">Rich, resonant</span>
-          </div>
-          <button class="chip-play" data-id="am_onyx" title="Preview Onyx">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_puck" data-name="puck" data-lang="American English" data-gender="male" title="Puck — Playful">
-          <div class="chip-content">
-            <span class="chip-name">Puck</span>
-            <span class="chip-desc">Playful</span>
-          </div>
-          <button class="chip-play" data-id="am_puck" title="Preview Puck">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_echo" data-name="echo" data-lang="American English" data-gender="male" title="Echo — Bright">
-          <div class="chip-content">
-            <span class="chip-name">Echo</span>
-            <span class="chip-desc">Bright</span>
-          </div>
-          <button class="chip-play" data-id="am_echo" title="Preview Echo">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_eric" data-name="eric" data-lang="American English" data-gender="male" title="Eric — Clear">
-          <div class="chip-content">
-            <span class="chip-name">Eric</span>
-            <span class="chip-desc">Clear</span>
-          </div>
-          <button class="chip-play" data-id="am_eric" title="Preview Eric">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_fenrir" data-name="fenrir" data-lang="American English" data-gender="male" title="Fenrir — Deep, cinematic">
-          <div class="chip-content">
-            <span class="chip-name">Fenrir</span>
-            <span class="chip-desc">Deep, cinematic</span>
-          </div>
-          <button class="chip-play" data-id="am_fenrir" title="Preview Fenrir">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_liam" data-name="liam" data-lang="American English" data-gender="male" title="Liam — Warm, friendly">
-          <div class="chip-content">
-            <span class="chip-name">Liam</span>
-            <span class="chip-desc">Warm, friendly</span>
-          </div>
-          <button class="chip-play" data-id="am_liam" title="Preview Liam">▶</button>
-        </div>
-        <div class="voice-chip" data-id="am_santa" data-name="santa" data-lang="American English" data-gender="male" title="Santa — Gravelly, storyteller">
-          <div class="chip-content">
-            <span class="chip-name">Santa</span>
-            <span class="chip-desc">Gravelly, storyteller</span>
-          </div>
-          <button class="chip-play" data-id="am_santa" title="Preview Santa">▶</button>
-        </div>
-      </div>
-      <div class="voice-gender-label">Female</div>
-      <div class="voice-chips">
-        <div class="voice-chip" data-id="af_heart" data-name="heart" data-lang="American English" data-gender="female" title="Heart — Warm, emotive">
-          <div class="chip-content">
-            <span class="chip-name">Heart</span>
-            <span class="chip-desc">Warm, emotive</span>
-          </div>
-          <button class="chip-play" data-id="af_heart" title="Preview Heart">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_bella" data-name="bella" data-lang="American English" data-gender="female" title="Bella — Bright, clear">
-          <div class="chip-content">
-            <span class="chip-name">Bella</span>
-            <span class="chip-desc">Bright, clear</span>
-          </div>
-          <button class="chip-play" data-id="af_bella" title="Preview Bella">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_nicole" data-name="nicole" data-lang="American English" data-gender="female" title="Nicole — Soft, calm">
-          <div class="chip-content">
-            <span class="chip-name">Nicole</span>
-            <span class="chip-desc">Soft, calm</span>
-          </div>
-          <button class="chip-play" data-id="af_nicole" title="Preview Nicole">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_sarah" data-name="sarah" data-lang="American English" data-gender="female" title="Sarah — Clear, neutral">
-          <div class="chip-content">
-            <span class="chip-name">Sarah</span>
-            <span class="chip-desc">Clear, neutral</span>
-          </div>
-          <button class="chip-play" data-id="af_sarah" title="Preview Sarah">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_sky" data-name="sky" data-lang="American English" data-gender="female" title="Sky — Youthful, light">
-          <div class="chip-content">
-            <span class="chip-name">Sky</span>
-            <span class="chip-desc">Youthful, light</span>
-          </div>
-          <button class="chip-play" data-id="af_sky" title="Preview Sky">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_nova" data-name="nova" data-lang="American English" data-gender="female" title="Nova — Crisp, modern">
-          <div class="chip-content">
-            <span class="chip-name">Nova</span>
-            <span class="chip-desc">Crisp, modern</span>
-          </div>
-          <button class="chip-play" data-id="af_nova" title="Preview Nova">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_river" data-name="river" data-lang="American English" data-gender="female" title="River — Calm, flowing">
-          <div class="chip-content">
-            <span class="chip-name">River</span>
-            <span class="chip-desc">Calm, flowing</span>
-          </div>
-          <button class="chip-play" data-id="af_river" title="Preview River">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_jessica" data-name="jessica" data-lang="American English" data-gender="female" title="Jessica — Confident, sharp">
-          <div class="chip-content">
-            <span class="chip-name">Jessica</span>
-            <span class="chip-desc">Confident, sharp</span>
-          </div>
-          <button class="chip-play" data-id="af_jessica" title="Preview Jessica">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_kore" data-name="kore" data-lang="American English" data-gender="female" title="Kore — Warm, poetic">
-          <div class="chip-content">
-            <span class="chip-name">Kore</span>
-            <span class="chip-desc">Warm, poetic</span>
-          </div>
-          <button class="chip-play" data-id="af_kore" title="Preview Kore">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_aoede" data-name="aoede" data-lang="American English" data-gender="female" title="Aoede — Melodic, lyrical">
-          <div class="chip-content">
-            <span class="chip-name">Aoede</span>
-            <span class="chip-desc">Melodic, lyrical</span>
-          </div>
-          <button class="chip-play" data-id="af_aoede" title="Preview Aoede">▶</button>
-        </div>
-        <div class="voice-chip" data-id="af_alloy" data-name="alloy" data-lang="American English" data-gender="female" title="Alloy — Bright, energetic">
-          <div class="chip-content">
-            <span class="chip-name">Alloy</span>
-            <span class="chip-desc">Bright, energetic</span>
-          </div>
-          <button class="chip-play" data-id="af_alloy" title="Preview Alloy">▶</button>
-        </div>
-      </div>
+
+  <!-- VOICE PICKER CARD -->
+  <div class="card">
+    <div class="input-header">
+      <span class="label">Voice selection</span>
     </div>
-    <div class="voice-lang" data-lang="British English">
-      <div class="voice-lang-header">British English</div>
-      <div class="voice-gender-label">Male</div>
-      <div class="voice-chips">
-        <div class="voice-chip" data-id="bm_george" data-name="george" data-lang="British English" data-gender="male" title="George — Warm, refined">
-          <div class="chip-content">
-            <span class="chip-name">George</span>
-            <span class="chip-desc">Warm, refined</span>
-          </div>
-          <button class="chip-play" data-id="bm_george" title="Preview George">▶</button>
-        </div>
-        <div class="voice-chip" data-id="bm_lewis" data-name="lewis" data-lang="British English" data-gender="male" title="Lewis — Deep, authoritative">
-          <div class="chip-content">
-            <span class="chip-name">Lewis</span>
-            <span class="chip-desc">Deep, authoritative</span>
-          </div>
-          <button class="chip-play" data-id="bm_lewis" title="Preview Lewis">▶</button>
-        </div>
-        <div class="voice-chip" data-id="bm_daniel" data-name="daniel" data-lang="British English" data-gender="male" title="Daniel — Clear, articulate">
-          <div class="chip-content">
-            <span class="chip-name">Daniel</span>
-            <span class="chip-desc">Clear, articulate</span>
-          </div>
-          <button class="chip-play" data-id="bm_daniel" title="Preview Daniel">▶</button>
-        </div>
-        <div class="voice-chip" data-id="bm_fable" data-name="fable" data-lang="British English" data-gender="male" title="Fable — Storyteller, warm">
-          <div class="chip-content">
-            <span class="chip-name">Fable</span>
-            <span class="chip-desc">Storyteller, warm</span>
-          </div>
-          <button class="chip-play" data-id="bm_fable" title="Preview Fable">▶</button>
-        </div>
+
+    <div class="voice-picker">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input type="text" id="voiceSearch" placeholder="Search voices by name or code..." autocomplete="off">
       </div>
-      <div class="voice-gender-label">Female</div>
-      <div class="voice-chips">
-        <div class="voice-chip" data-id="bf_emma" data-name="emma" data-lang="British English" data-gender="female" title="Emma — Warm, elegant">
-          <div class="chip-content">
-            <span class="chip-name">Emma</span>
-            <span class="chip-desc">Warm, elegant</span>
-          </div>
-          <button class="chip-play" data-id="bf_emma" title="Preview Emma">▶</button>
+
+      <div class="filter-row" id="voiceFilter">
+        <button class="filter-chip active" data-filter="all">All</button>
+        <button class="filter-chip" data-filter="male">Male</button>
+        <button class="filter-chip" data-filter="female">Female</button>
+        <button class="filter-chip" data-filter="American English">American</button>
+        <button class="filter-chip" data-filter="British English">British</button>
+        <button class="filter-chip" data-filter="Japanese">Japanese</button>
+        <button class="filter-chip" data-filter="Mandarin Chinese">Mandarin</button>
+        <button class="filter-chip" data-filter="Spanish">Spanish</button>
+        <button class="filter-chip" data-filter="French">French</button>
+        <button class="filter-chip" data-filter="Hindi">Hindi</button>
+        <button class="filter-chip" data-filter="Italian">Italian</button>
+        <button class="filter-chip" data-filter="Portuguese">Portuguese</button>
+      </div>
+
+      <div class="voice-count" id="voiceCount"></div>
+      <div class="voice-list" id="voiceList">
+        <div class="empty">Loading voices catalog...</div>
+      </div>
+
+      <div class="selected-bar">
+        <div>
+          <span class="label" style="display:block; margin-bottom:2px;">Active Voice</span>
+          <span class="name" id="selectedName">Adam</span>
         </div>
-        <div class="voice-chip" data-id="bf_alice" data-name="alice" data-lang="British English" data-gender="female" title="Alice — Clear, bright">
-          <div class="chip-content">
-            <span class="chip-name">Alice</span>
-            <span class="chip-desc">Clear, bright</span>
-          </div>
-          <button class="chip-play" data-id="bf_alice" title="Preview Alice">▶</button>
-        </div>
-        <div class="voice-chip" data-id="bf_isabella" data-name="isabella" data-lang="British English" data-gender="female" title="Isabella — Refined, smooth">
-          <div class="chip-content">
-            <span class="chip-name">Isabella</span>
-            <span class="chip-desc">Refined, smooth</span>
-          </div>
-          <button class="chip-play" data-id="bf_isabella" title="Preview Isabella">▶</button>
-        </div>
-        <div class="voice-chip" data-id="bf_lily" data-name="lily" data-lang="British English" data-gender="female" title="Lily — Youthful, gentle">
-          <div class="chip-content">
-            <span class="chip-name">Lily</span>
-            <span class="chip-desc">Youthful, gentle</span>
-          </div>
-          <button class="chip-play" data-id="bf_lily" title="Preview Lily">▶</button>
-        </div>
+        <span class="id" id="selectedId">am_adam</span>
       </div>
     </div>
   </div>
-  <div class="voice-selected-bar" id="voiceSelectedBar">
-    <span class="label">Selected</span>
-    <span class="name" id="selectedName">Adam</span>
-    <span class="id" id="selectedId">am_adam</span>
-  </div>
-</div>
-      </div>
-      <div>
+
+  <!-- CONTROLS & GENERATE CARD -->
+  <div class="card">
+    <div class="controls-row">
+      <div class="speed-control">
         <label>Speed</label>
-        <div class="speed-row">
-          <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
-          <span id="speedVal">1.00×</span>
-        </div>
+        <input type="range" id="speed" min="0.7" max="1.5" step="0.05" value="1.0">
+        <div class="speed-value" id="speedVal">1.00×</div>
       </div>
     </div>
 
-    <button class="btn-primary" id="speakBtn">🔊 Speak</button>
-    <div class="status" id="status">Ready.</div>
+    <button class="speak-btn" id="speakBtn">
+      <span>Generate & Play Audio</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+    </button>
+
+    <div class="status" id="status">Ready. Select a voice and hit generate (or Ctrl + Enter).</div>
+
     <audio id="player" controls></audio>
   </div>
 
-  <!-- HISTORY -->
+  <!-- HISTORY CARD -->
   <div class="card">
-    <label style="margin-top:0;">Recent generations</label>
-    <div class="history" id="history">
-      <div class="empty">None yet.</div>
+    <div class="input-header">
+      <span class="label">Generation History</span>
+    </div>
+    <div id="history">
+      <div class="empty">No recent generations yet.</div>
     </div>
   </div>
 
-  <!-- API DOCS -->
+  <!-- API CARD -->
   <div class="card">
-    <div class="api-section">
-  <h3>API — Use it in your app</h3>
+    <div class="api-toggle" id="apiToggle">
+      <h3>⚡ Developer API Endpoints</h3>
+      <span class="api-toggle-icon">▼</span>
+    </div>
 
-  <div class="api-label"><strong>POST /speak</strong> — generate speech</div>
-  <code>curl -X POST https://voicekit-prod.vercel.app/speak \
+    <div class="api-body" id="apiBody">
+      <div class="api-block">
+        <div class="api-label"><strong>cURL Request</strong></div>
+        <code class="api-code">curl -X POST /speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"Listen closely. You can barely tell this is not me talking.","voice":"am_adam","speed":1.0}' \
-  -o voice.wav</code>
+  -d '{"text":"Hello world","voice":"am_adam","speed":1.0}' \
+  -o output.wav</code>
+      </div>
 
-  <div class="api-label"><strong>Python</strong></div>
-  <code>import requests
+      <div class="api-block">
+        <div class="api-label"><strong>Python Integration</strong></div>
+        <code class="api-code">import requests
 
-r = requests.post("https://voicekit-prod.vercel.app/speak", json={
-    "text": "Listen closely. You can barely tell this is not me talking.",
+res = requests.post("https://voicekit-prod.vercel.app/speak", json={
+    "text": "Hello world",
     "voice": "am_adam",
     "speed": 1.0,
 })
-open("voice.wav", "wb").write(r.content)</code>
+open("output.wav", "wb").write(res.content)</code>
+      </div>
 
-  <div class="api-label"><strong>JavaScript</strong></div>
-  <code>const res = await fetch("https://voicekit-prod.vercel.app/speak", {
+      <div class="api-block">
+        <div class="api-label"><strong>JavaScript Integration</strong></div>
+        <code class="api-code">const res = await fetch("/speak", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    text: "Listen closely. You can barely tell this is not me talking.",
-    voice: "am_adam",
-    speed: 1.0
-  })
+  body: JSON.stringify({ text: "Hello world", voice: "am_adam", speed: 1.0 })
 });
 const blob = await res.blob();
 new Audio(URL.createObjectURL(blob)).play();</code>
+      </div>
 
-  <div class="api-label"><strong>PowerShell</strong></div>
-  <code>$body = @{
-  text  = "Listen closely. You can barely tell this is not me talking."
-  voice = "am_adam"
-  speed = 1.0
-} | ConvertTo-Json
-
-Invoke-WebRequest -Method Post `
-  -Uri "https://voicekit-prod.vercel.app/speak" `
-  -ContentType "application/json" `
-  -Body $body `
-  -OutFile "voice.wav"
-
-Start-Process "voice.wav"</code>
-
-  <div class="api-label" style="margin-top:16px;">
-    <strong>Endpoints:</strong>
-    <span style="color:#22d3ee;">POST /speak</span> ·
-    <span style="color:#22d3ee;">GET /voices</span> ·
-    <span style="color:#22d3ee;">GET /health</span>
-  </div>
-</div>
+      <div class="api-endpoints">
+        <span class="endpoint"><span class="method">POST</span>/speak</span>
+        <span class="endpoint"><span class="method">GET</span>/voices</span>
+        <span class="endpoint"><span class="method">GET</span>/voices/catalog</span>
+        <span class="endpoint"><span class="method">GET</span>/health</span>
+      </div>
+    </div>
   </div>
 
-  <footer>
-    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank">Space</a>
-    ·
-    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank">Kokoro-82M</a>
-  </footer>
+  <!-- FOOTER -->
+  <div class="footer">
+    <a href="https://huggingface.co/spaces/Motari/txt2speech" target="_blank">HuggingFace Space</a>
+    <span class="sep">·</span>
+    <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank">Kokoro-82M Engine</a>
+    <span class="sep">·</span>
+    <a href="/voices" target="_blank">API Docs</a>
+  </div>
 </div>
 
 <script>
-// ============================================================
-// CONFIG
-// ============================================================
-const API_URL = "";
+const API_URL = ""; 
 
-// ============================================================
-// ELEMENTS
-// ============================================================
-const textEl    = document.getElementById('text');
-const voiceEl   = document.getElementById('voice');
-const speedEl   = document.getElementById('speed');
-const speedVal  = document.getElementById('speedVal');
-const speakBtn  = document.getElementById('speakBtn');
-const statusEl  = document.getElementById('status');
-const player    = document.getElementById('player');
+let selectedVoiceId = "am_adam";
+let selectedVoiceName = "Adam";
+let currentFilter = "all";
+let currentSearch = "";
+let voiceCatalog = null;
+
+const textEl = document.getElementById('text');
+const speedEl = document.getElementById('speed');
+const speedVal = document.getElementById('speedVal');
+const speakBtn = document.getElementById('speakBtn');
+const statusEl = document.getElementById('status');
+const player = document.getElementById('player');
 const historyEl = document.getElementById('history');
-
-const history = [];
-
-// ============================================================
-// HELPERS
-// ============================================================
-speedEl.oninput = () => {
-  speedVal.textContent = parseFloat(speedEl.value).toFixed(2) + '×';
-};
+const charCount = document.getElementById('charCount');
+const voiceList = document.getElementById('voiceList');
+const voiceSearch = document.getElementById('voiceSearch');
+const voiceFilter = document.getElementById('voiceFilter');
+const voiceCount = document.getElementById('voiceCount');
+const selectedName = document.getElementById('selectedName');
+const selectedId = document.getElementById('selectedId');
+const apiToggle = document.getElementById('apiToggle');
+const apiBody = document.getElementById('apiBody');
 
 function setStatus(msg, cls) {
   statusEl.className = 'status ' + (cls || '');
   statusEl.textContent = msg;
 }
 
-document.querySelectorAll('.quick-phrases button').forEach(btn => {
+speedEl.oninput = () => {
+  speedVal.textContent = parseFloat(speedEl.value).toFixed(2) + '×';
+};
+
+textEl.oninput = () => {
+  const len = textEl.value.length;
+  charCount.textContent = len + ' / 800';
+  charCount.className = 'char-count';
+  if (len > 700) charCount.classList.add('warn');
+  if (len >= 800) charCount.classList.add('over');
+};
+
+textEl.oninput();
+
+document.querySelectorAll('.quick button').forEach(btn => {
   btn.onclick = () => {
     textEl.value = btn.dataset.p;
+    textEl.oninput();
     textEl.focus();
   };
 });
 
-// ============================================================
-// SPEAK
-// ============================================================
-async function speak() {
-  const text = textEl.value.trim();
-  if (!text) {
-    setStatus('Type something first.', 'err');
-    return;
+apiToggle.onclick = () => {
+  apiToggle.classList.toggle('open');
+  apiBody.classList.toggle('open');
+};
+
+// Fallback catalog if backend is offline during local testing
+const fallbackCatalog = {
+  "American English": {
+    "Female": [
+      ["af_nicole", "Nicole", "Soft & Warm"],
+      ["af_sarah", "Sarah", "Clear & Professional"],
+      ["af_sky", "Sky", "Bright & Energetic"],
+      ["af_alloy", "Alloy", "Balanced Studio"]
+    ],
+    "Male": [
+      ["am_adam", "Adam", "Deep & Cinematic"],
+      ["am_michael", "Michael", "Confident & Authoritative"],
+      ["am_eric", "Eric", "Casual & Warm"]
+    ]
+  },
+  "British English": {
+    "Female": [
+      ["bf_emma", "Emma", "Refined & Crisp"],
+      ["bf_isabella", "Isabella", "Articulate & Smooth"]
+    ],
+    "Male": [
+      ["bm_george", "George", "Distinguished & Deep"],
+      ["bm_lewis", "Lewis", "Warm Narrative"]
+    ]
   }
+};
 
-  const voice = (typeof selectedVoiceId !== 'undefined' && selectedVoiceId)
-                || voiceEl.value
-                || 'am_adam';
-  const speed = parseFloat(speedEl.value);
-
-  speakBtn.disabled = true;
-  speakBtn.textContent = '⏳ Generating...';
-  speakBtn.classList.add('pulse');
-  setStatus('Sending to VoiceKit...', 'busy');
-
-  const t0 = performance.now();
-
+async function loadVoices() {
   try {
-    const res = await fetch(`${API_URL}/speak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice, speed })
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Server error ${res.status}`);
-    }
-
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    player.src = blobUrl;
-    player.classList.add('show');
-    await player.play().catch(() => {});
-
-    const ms = Math.round(performance.now() - t0);
-    setStatus(`✓ Ready in ${ms} ms — ${(blob.size / 1024).toFixed(1)} KB`, 'ok');
-
-    history.unshift({ text, voice, speed, blobUrl, ts: Date.now(), ms, size: blob.size });
-    if (history.length > 20) history.pop();
-    renderHistory();
-
+    const res = await fetch(`${API_URL}/voices/catalog`);
+    if (!res.ok) throw new Error('Catalog endpoint unavailable');
+    voiceCatalog = await res.json();
   } catch (e) {
-    console.error(e);
-    setStatus('Error: ' + e.message, 'err');
-  } finally {
-    speakBtn.disabled = false;
-    speakBtn.textContent = '🔊 Speak';
-    speakBtn.classList.remove('pulse');
+    voiceCatalog = fallbackCatalog;
   }
+  renderVoicePicker();
+  updateVoiceCount();
 }
 
-// ============================================================
-// HISTORY
-// ============================================================
-function renderHistory() {
-  if (!history.length) {
-    historyEl.innerHTML = '<div class="empty">None yet.</div>';
-    return;
-  }
+function renderVoicePicker() {
+  if (!voiceCatalog) return;
+  voiceList.innerHTML = '';
 
-  historyEl.innerHTML = '';
-  history.forEach(h => {
-    const ts = new Date(h.ts).toLocaleTimeString();
-    const preview = h.text.length > 60 ? h.text.substring(0, 60) + '…' : h.text;
+  Object.keys(voiceCatalog).forEach(lang => {
+    const groups = voiceCatalog[lang];
+    const block = document.createElement('div');
+    block.className = 'voice-lang';
+    block.dataset.lang = lang;
+    block.innerHTML = `<div class="voice-lang-header">${lang}</div>`;
 
-    const row = document.createElement('div');
-    row.className = 'history-item';
-    row.innerHTML =
-      '<div style="flex:1; overflow:hidden;">' +
-        '<div class="text">' + preview.replace(/</g, '&lt;') + '</div>' +
-        '<div class="meta">' + h.voice + ' · ' + h.speed + '× · ' + ts + ' · ' + h.ms + ' ms</div>' +
-      '</div>' +
-      '<button>▶ Play</button>';
+    ['Female', 'Male'].forEach(gender => {
+      const voices = groups[gender];
+      if (!voices || voices.length === 0) return;
 
-    row.querySelector('button').onclick = () => {
-      player.src = h.blobUrl;
-      player.classList.add('show');
-      player.play();
-    };
+      const row = document.createElement('div');
+      row.className = 'voice-chips';
+      row.innerHTML = `<div class="voice-gender-label" style="grid-column:1/-1;">${gender}</div>`;
 
-    historyEl.appendChild(row);
+      voices.forEach(v => {
+        const [id, name, desc] = v;
+        const chip = document.createElement('div');
+        const isSelected = id === selectedVoiceId;
+        chip.className = 'voice-chip' + (isSelected ? ' selected' : '');
+        chip.dataset.id = id;
+        chip.dataset.name = name.toLowerCase();
+        chip.dataset.lang = lang;
+        chip.dataset.gender = gender.toLowerCase();
+        
+        chip.innerHTML = `
+          <div class="chip-content">
+            <span class="chip-name">${name}</span>
+            <span class="chip-desc">${desc || ''}</span>
+          </div>
+          <button class="chip-play" data-id="${id}" title="Preview Voice">▶</button>
+        `;
+
+        chip.onclick = (e) => {
+          if (e.target.closest('.chip-play')) return;
+          selectVoice(id, name, chip);
+        };
+
+        chip.querySelector('.chip-play').onclick = (e) => {
+          e.stopPropagation();
+          previewVoice(id, e.target);
+        };
+
+        row.appendChild(chip);
+      });
+
+      block.appendChild(row);
+    });
+
+    voiceList.appendChild(block);
   });
 }
 
-// ============================================================
-// KEYBOARD
-// ============================================================
-textEl.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    speak();
-  }
-});
+function selectVoice(id, name, chip) {
+  selectedVoiceId = id;
+  selectedVoiceName = name;
+  selectedName.textContent = name;
+  selectedId.textContent = id;
 
-// ============================================================
-// WIRE UP
-// ============================================================
-speakBtn.onclick = speak;
+  document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
+  if (chip) chip.classList.add('selected');
+}
 
-setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
+function updateVoiceCount() {
+  const visible = document.querySelectorAll('.voice-chip:not(.hidden)').length;
+  voiceCount.textContent = `${visible} voice${visible === 1 ? '' : 's'} available`;
+}
 
-// ============================================================
-// VOICE PICKER
-// ============================================================
-let selectedVoiceId = "am_adam";
-let currentFilter = "all";
-let currentSearch = "";
+voiceSearch.oninput = (e) => {
+  currentSearch = e.target.value.toLowerCase().trim();
+  applyFilters();
+};
 
-const voiceList = document.getElementById('voiceList');
-const voiceSearch = document.getElementById('voiceSearch');
-const voiceFilter = document.getElementById('voiceFilter');
-const voiceCount = document.getElementById('voiceCount');
-const selectedNameEl = document.getElementById('selectedName');
-const selectedIdEl = document.getElementById('selectedId');
+voiceFilter.onclick = (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  voiceFilter.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  currentFilter = chip.dataset.filter;
+  applyFilters();
+};
 
-function updatePickerVisibility() {
-  const chips = document.querySelectorAll('.voice-chip');
-  let visible = 0;
-
-  chips.forEach(chip => {
-    const id     = chip.dataset.id.toLowerCase();
-    const name   = chip.dataset.name;
-    const lang   = chip.dataset.lang;
+function applyFilters() {
+  document.querySelectorAll('.voice-chip').forEach(chip => {
+    const id = chip.dataset.id.toLowerCase();
+    const name = chip.dataset.name;
+    const lang = chip.dataset.lang;
     const gender = chip.dataset.gender;
 
-    const matchesSearch = !currentSearch
-      || id.includes(currentSearch)
-      || name.includes(currentSearch);
+    const matchesSearch = !currentSearch || id.includes(currentSearch) || name.includes(currentSearch);
 
     let matchesFilter = true;
-    if (currentFilter === 'male')   matchesFilter = gender === 'male';
+    if (currentFilter === 'male') matchesFilter = gender === 'male';
     else if (currentFilter === 'female') matchesFilter = gender === 'female';
     else if (currentFilter !== 'all') matchesFilter = lang === currentFilter;
 
-    const show = matchesSearch && matchesFilter;
-    chip.classList.toggle('hidden', !show);
-    if (show) visible++;
+    chip.classList.toggle('hidden', !(matchesSearch && matchesFilter));
   });
 
-  // Hide empty language blocks
   document.querySelectorAll('.voice-lang').forEach(block => {
-    const anyVisible = block.querySelectorAll('.voice-chip:not(.hidden)').length;
-    block.classList.toggle('hidden', anyVisible === 0);
+    const any = block.querySelectorAll('.voice-chip:not(.hidden)').length;
+    block.classList.toggle('hidden', any === 0);
   });
 
-  // Update count
-  if (voiceCount) {
-    voiceCount.textContent = visible + ' voice' + (visible === 1 ? '' : 's');
-  }
+  updateVoiceCount();
 }
 
-// ---------- Chip click — select ----------
-document.addEventListener('click', (e) => {
-  const playBtn = e.target.closest('.chip-play');
-  if (playBtn) {
-    e.stopPropagation();
-    previewVoice(playBtn.dataset.id, playBtn);
-    return;
-  }
-
-  const chip = e.target.closest('.voice-chip');
-  if (!chip) return;
-
-  document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
-  chip.classList.add('selected');
-
-  selectedVoiceId = chip.dataset.id;
-  const name = chip.querySelector('.chip-name').textContent;
-
-  // Update selected bar
-  if (selectedNameEl) selectedNameEl.textContent = name;
-  if (selectedIdEl)   selectedIdEl.textContent = selectedVoiceId;
-
-  // Sync the hidden <select> so speak() works
-  const hiddenSelect = document.getElementById('voice');
-  if (hiddenSelect) hiddenSelect.value = selectedVoiceId;
-});
-
-// ---------- Search ----------
-if (voiceSearch) {
-  voiceSearch.addEventListener('input', (e) => {
-    currentSearch = e.target.value.toLowerCase().trim();
-    updatePickerVisibility();
-  });
-}
-
-// ---------- Filter chips ----------
-if (voiceFilter) {
-  voiceFilter.addEventListener('click', (e) => {
-    const chip = e.target.closest('.filter-chip');
-    if (!chip) return;
-
-    voiceFilter.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    currentFilter = chip.dataset.filter;
-    updatePickerVisibility();
-  });
-}
-
-// ---------- Preview voice ----------
 async function previewVoice(voiceId, btn) {
   if (btn) {
     btn.textContent = '⏳';
@@ -1190,17 +1233,15 @@ async function previewVoice(voiceId, btn) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text: "Listen closely. You can barely tell this is not me talking.",
+        text: "Sample preview audio.",
         voice: voiceId,
         speed: 1.0
       })
     });
 
     if (!res.ok) throw new Error('Preview failed');
-
     const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
+    const audio = new Audio(URL.createObjectURL(blob));
     audio.play();
 
     if (btn) {
@@ -1210,21 +1251,110 @@ async function previewVoice(voiceId, btn) {
         btn.classList.remove('playing');
       };
     }
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
     if (btn) {
-      btn.textContent = '✗';
-      setTimeout(() => {
-        btn.textContent = '▶';
-        btn.classList.remove('playing');
-      }, 1500);
+      btn.textContent = '▶';
+      btn.classList.remove('playing');
     }
+    setStatus('Voice preview failed: ' + e.message, 'err');
   }
 }
 
-// ---------- Initialize ----------
-updatePickerVisibility();
+async function generateSpeech() {
+  const text = textEl.value.trim();
+  if (!text) {
+    setStatus('Please enter some text to speak.', 'err');
+    textEl.focus();
+    return;
+  }
 
+  speakBtn.disabled = true;
+  speakBtn.classList.add('generating');
+  speakBtn.querySelector('span').textContent = 'Synthesizing Audio...';
+  setStatus(`Generating speech with ${selectedVoiceName} (${selectedVoiceId})...`, 'busy');
+
+  try {
+    const speed = parseFloat(speedEl.value);
+    const res = await fetch(`${API_URL}/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text,
+        voice: selectedVoiceId,
+        speed: speed
+      })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Server responded with ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const audioUrl = URL.createObjectURL(blob);
+    
+    player.src = audioUrl;
+    player.classList.add('show');
+    player.play();
+
+    setStatus(`Successfully synthesized speech using ${selectedVoiceName}.`, 'ok');
+    addToHistory(text, selectedVoiceName, speed);
+
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'err');
+  } finally {
+    speakBtn.disabled = false;
+    speakBtn.classList.remove('generating');
+    speakBtn.querySelector('span').textContent = 'Generate & Play Audio';
+  }
+}
+
+speakBtn.onclick = generateSpeech;
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    generateSpeech();
+  }
+});
+
+function addToHistory(text, voiceName, speed) {
+  const emptyHistory = historyEl.querySelector('.empty');
+  if (emptyHistory) emptyHistory.remove();
+
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.innerHTML = `
+    <div class="info">
+      <div class="text">${escapeHtml(text)}</div>
+      <div class="meta">${voiceName} · ${speed}× · ${timeStr}</div>
+    </div>
+    <button>Replay</button>
+  `;
+
+  const replayBtn = item.querySelector('button');
+  replayBtn.onclick = () => {
+    textEl.value = text;
+    textEl.oninput();
+    generateSpeech();
+  };
+
+  historyEl.prepend(item);
+
+  // Keep max 5 history items
+  const items = historyEl.querySelectorAll('.history-item');
+  if (items.length > 5) {
+    items[items.length - 1].remove();
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Initialize
+loadVoices();
 </script>
 </body>
 </html>
