@@ -1,7 +1,7 @@
 """
-VoiceKit — Cloudinary Audio Storage
+VoiceKit — Cloudinary Storage
 - Uploads generated WAVs to Cloudinary
-- Saves the URL in the history table
+- Stores the secure URL in the history table
 - Replay plays from Cloudinary (instant, no re-generation)
 - Falls back to regeneration if URL is missing
 """
@@ -23,7 +23,7 @@ def backup(path):
 
 
 # ============================================================
-# PATCH 1: requirements.txt
+# requirements.txt
 # ============================================================
 NEW_REQS = """flask
 flask-cors
@@ -34,46 +34,45 @@ cloudinary
 
 
 # ============================================================
-# PATCH 2: app.py additions
+# Cloudinary setup block (inserted into app.py)
 # ============================================================
-CLOUDINARY_IMPORT = '''
+CLOUDINARY_BLOCK = '''
+# ============================================================
+# CLOUDINARY
+# ============================================================
 import cloudinary
 import cloudinary.uploader
 
-CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")
-if CLOUDINARY_URL:
-    # The cloudinary SDK reads CLOUDINARY_URL automatically,
-    # but we can also configure explicitly from parts.
-    pass
-'''
+_cloudinary_ready = False
+if os.environ.get("CLOUDINARY_URL"):
+    try:
+        cloudinary.config(secure=True)
+        _cloudinary_ready = True
+        print("[cloudinary] configured")
+    except Exception as e:
+        print(f"[cloudinary] config failed: {e}")
 
 
-CLOUDINARY_UPLOAD_FN = '''
-# ============================================================
-# CLOUDINARY UPLOAD
-# ============================================================
-def upload_to_cloudinary(wav_bytes, voice, device_id):
+def upload_to_cloudinary(wav_bytes, voice):
     """Upload WAV bytes to Cloudinary. Returns secure_url or None."""
-    if not os.environ.get("CLOUDINARY_URL"):
+    if not _cloudinary_ready:
         return None
     try:
-        import cloudinary
-        import cloudinary.uploader
-
-        # Public ID: unique per generation
         import hashlib
         public_id = "voicekit/" + hashlib.sha1(
-            (voice + str(time.time()) + device_id).encode()
-        ).hexdigest()[:20]
+            (voice + str(time.time())).encode()
+        ).hexdigest()[:24]
 
         result = cloudinary.uploader.upload(
             io.BytesIO(wav_bytes),
-            resource_type="video",  # Cloudinary uses 'video' for audio
+            resource_type="video",
             public_id=public_id,
             format="wav",
-            overwrite=True,
+            overwrite=False,
         )
-        return result.get("secure_url")
+        url = result.get("secure_url")
+        print(f"[cloudinary] uploaded: {url}")
+        return url
     except Exception as e:
         print(f"[cloudinary] upload failed: {e}")
         return None
@@ -81,7 +80,7 @@ def upload_to_cloudinary(wav_bytes, voice, device_id):
 
 
 # ============================================================
-# PATCH 3: Updated /speak to upload + save URL
+# Updated /speak route
 # ============================================================
 NEW_SPEAK = '''@app.route("/speak", methods=["POST", "OPTIONS"])
 def speak():
@@ -104,29 +103,25 @@ def speak():
 
         wav_bytes = generate_speech(text, voice, speed)
 
-        # Upload to Cloudinary + save history (best effort)
+        # Upload to Cloudinary + save history
         if device_id and DATABASE_URL:
             try:
                 init_db()
-                audio_url = upload_to_cloudinary(wav_bytes, voice, device_id)
-                with get_db() as conn:
-                    with conn.cursor() as cur:
-                        cur.execute(
-                            "INSERT INTO history (device_id, text, voice, speed, audio_url) "
-                            "VALUES (%s, %s, %s, %s, %s)",
-                            (device_id, text[:800], voice, speed, audio_url),
-                        )
-                    conn.commit()
+                audio_url = upload_to_cloudinary(wav_bytes, voice)
+                db_execute(
+                    "INSERT INTO history (device_id, text, voice, speed, audio_url) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (device_id, text[:800], voice, speed, audio_url),
+                )
             except Exception as e:
                 print(f"[db] history insert failed: {e}")
 
-        response = send_file(
+        return send_file(
             io.BytesIO(wav_bytes),
             mimetype="audio/wav",
             as_attachment=False,
             download_name=f"{voice}.wav",
         )
-        return response
 
     except requests.Timeout:
         return jsonify({"error": "Voice service is warming up. Try again in a moment."}), 504
@@ -140,9 +135,9 @@ def speak():
 
 
 # ============================================================
-# PATCH 4: Updated /history to include audio_url
+# Updated /history GET
 # ============================================================
-NEW_HISTORY_GET = '''@app.route("/history", methods=["GET"])
+NEW_HISTORY = '''@app.route("/history", methods=["GET"])
 def get_history():
     device_id = (request.args.get("device") or "").strip()
     limit = int(request.args.get("limit", 30))
@@ -176,16 +171,26 @@ def get_history():
 
 
 # ============================================================
-# PATCH 5: Frontend — replay from Cloudinary URL when present
+# Migration SQL
+# ============================================================
+MIGRATION = '''
+                    # Ensure audio_url column exists (safe migration)
+                    try:
+                        cur.execute("ALTER TABLE history ADD COLUMN IF NOT EXISTS audio_url TEXT;")
+                    except Exception:
+                        pass
+'''
+
+
+# ============================================================
+# Frontend replay
 # ============================================================
 NEW_REPLAY = '''      btn.onclick = () => {
         if (h.audio_url) {
-          // Instant replay from Cloudinary
           new Audio(h.audio_url).play();
           return;
         }
 
-        // Fallback: regenerate
         btn.disabled = true;
         btn.textContent = '\\u23f3 Loading...';
         fetch('/speak', {
@@ -199,13 +204,8 @@ NEW_REPLAY = '''      btn.onclick = () => {
           })
         })
         .then(r => r.ok ? r.blob() : Promise.reject(new Error('Replay failed')))
-        .then(blob => {
-          new Audio(URL.createObjectURL(blob)).play();
-        })
-        .catch(e => {
-          console.error('Replay error:', e);
-          alert('Could not replay. Try again.');
-        })
+        .then(blob => { new Audio(URL.createObjectURL(blob)).play(); })
+        .catch(e => { console.error('Replay error:', e); })
         .finally(() => {
           btn.disabled = false;
           btn.textContent = '\\u25b6 Replay';
@@ -215,10 +215,10 @@ NEW_REPLAY = '''      btn.onclick = () => {
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Cloudinary Audio Storage")
+    print(" VoiceKit — Cloudinary Storage")
     print("=" * 60)
 
-    # ---------- requirements.txt ----------
+    # ---------- requirements ----------
     print("\n[1/3] requirements.txt")
     backup(REQ)
     with open(REQ, "w", encoding="utf-8") as f:
@@ -238,61 +238,40 @@ def patch():
     original = src
     changes = []
 
-    # Add cloudinary import near the top
+    # Cloudinary block — insert before # UPSTREAM
     if 'import cloudinary' not in src:
-        anchor = "from flask_cors import CORS"
+        anchor = "# ============================================================\n# UPSTREAM"
         if anchor in src:
-            src = src.replace(anchor, anchor + "\n\n" + CLOUDINARY_IMPORT, 1)
-            changes.append("cloudinary import")
+            src = src.replace(anchor, CLOUDINARY_BLOCK + "\n" + anchor, 1)
+            changes.append("cloudinary block")
 
-    # Add the upload function before "# ROUTES"
-    if 'def upload_to_cloudinary' not in src:
-        anchor = "# ============================================================\n# ROUTES"
-        if anchor in src:
-            src = src.replace(anchor, CLOUDINARY_UPLOAD_FN + "\n" + anchor, 1)
-            changes.append("cloudinary upload function")
+    # Migration in init_db
+    if 'audio_url' not in src.split('CREATE TABLE IF NOT EXISTS history')[1][:400]:
+        old_index = 'CREATE INDEX IF NOT EXISTS idx_history_device'
+        if old_index in src:
+            idx_pos = src.find(old_index)
+            end_pos = src.find('"""', idx_pos)
+            if end_pos != -1:
+                src = src[:end_pos] + MIGRATION + src[end_pos:]
+                changes.append("audio_url migration")
 
-    # Replace the /speak route
+    # Replace /speak
     speak_pattern = re.compile(
         r'@app\.route\("/speak", methods=\["POST", "OPTIONS"\]\)\s*\ndef speak\(\):.*?(?=\n# ---------- FAVORITES|\n# =+\s*\n# FAVORITES)',
         re.DOTALL
     )
     if speak_pattern.search(src):
         src = speak_pattern.sub(NEW_SPEAK + "\n\n", src, count=1)
-        changes.append("/speak route")
+        changes.append("/speak")
 
-    # Replace the /history GET route
+    # Replace /history GET
     hist_pattern = re.compile(
         r'@app\.route\("/history", methods=\["GET"\]\)\s*\ndef get_history\(\):.*?(?=\n@app\.route\("/history", methods=\["DELETE")',
         re.DOTALL
     )
     if hist_pattern.search(src):
-        src = hist_pattern.sub(NEW_HISTORY_GET + "\n\n", src, count=1)
-        changes.append("/history GET route")
-
-    # Add audio_url column migration (safe if already exists)
-    old_create = 'CREATE TABLE IF NOT EXISTS history ('
-    new_create = '''CREATE TABLE IF NOT EXISTS history (
-                            audio_url  TEXT,'''
-    if old_create in src and 'audio_url' not in src.split('CREATE TABLE IF NOT EXISTS history')[1][:200]:
-        src = src.replace(old_create, new_create, 1)
-        # Also add ALTER TABLE for existing tables
-        alter_sql = '''
-                    # Add column if it doesn't exist (safe for existing DBs)
-                    try:
-                        cur.execute("ALTER TABLE history ADD COLUMN IF NOT EXISTS audio_url TEXT;")
-                    except Exception:
-                        pass
-'''
-        # Insert right after the CREATE INDEX statement
-        old_index = 'CREATE INDEX IF NOT EXISTS idx_history_device'
-        if old_index in src:
-            # Find the end of the CREATE INDEX statement
-            idx_pos = src.find(old_index)
-            end_pos = src.find('"""', idx_pos)
-            if end_pos != -1:
-                src = src[:end_pos] + alter_sql + src[end_pos:]
-                changes.append("audio_url column migration")
+        src = hist_pattern.sub(NEW_HISTORY + "\n\n", src, count=1)
+        changes.append("/history GET")
 
     if src == original:
         print("  No changes.")
@@ -312,25 +291,19 @@ def patch():
         src = f.read()
 
     original = src
-    changes = []
 
-    # Replace the replay button handler
     old_handler = re.search(
-        r'btn\.onclick = async \(\) => \{.*?\n      \};',
+        r'btn\.onclick = (?:async )?\(\) => \{.*?\n      \};',
         src,
         re.DOTALL
     )
-
     if old_handler:
         src = src[:old_handler.start()] + NEW_REPLAY + src[old_handler.end():]
-        changes.append("replay handler")
+        print("  [OK] replay handler")
 
-    if src == original:
-        print("  No changes.")
-    else:
+    if src != original:
         with open(HTML, "w", encoding="utf-8") as f:
             f.write(src)
-        print(f"  [OK] Applied: {', '.join(changes)}")
 
     print()
     print("=" * 60)
@@ -339,27 +312,35 @@ def patch():
     print()
     print(" Next steps:")
     print()
-    print(" 1. Get your Cloudinary URL:")
-    print("    - Sign up at cloudinary.com (free tier: 25GB storage)")
-    print("    - Dashboard shows: cloudinary://API_KEY:API_SECRET@CLOUD_NAME")
+    print(" 1. Add env vars to Vercel (Settings → Environment Variables):")
+    print("    CLOUDINARY_CLOUD_NAME = your_cloud_name")
+    print("    CLOUDINARY_API_KEY    = your_api_key")
+    print("    CLOUDINARY_API_SECRET = your_api_secret")
     print()
-    print(" 2. Add to Vercel env vars:")
-    print("    CLOUDINARY_URL = cloudinary://...")
+    print(" 2. Add this in app.py — BEFORE the Cloudinary block:")
+    print("    (the SDK reads these and builds CLOUDINARY_URL internally)")
     print()
-    print(" 3. Add to local env (for testing):")
-    print("    set CLOUDINARY_URL=cloudinary://...")
+    print("    import cloudinary")
+    print("    cloudinary.config(")
+    print("        cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),")
+    print("        api_key=os.environ.get('CLOUDINARY_API_KEY'),")
+    print("        api_secret=os.environ.get('CLOUDINARY_API_SECRET'),")
+    print("        secure=True")
+    print("    )")
     print()
-    print(" 4. Install:")
+    print(" 3. Install:")
     print("    pip install cloudinary")
     print()
-    print(" 5. Deploy:")
+    print(" 4. Deploy:")
     print("    vercel --prod")
     print()
-    print(" What happens:")
-    print("   • Every generation uploads to Cloudinary")
-    print("   • URL saved in the history table")
-    print("   • Replay plays the URL directly — instant")
-    print("   • Old entries (no URL) still regenerate")
+    print(" 5. Verify:")
+    print("    Generate once, then check the console:")
+    print("    fetch('/history?device=' + localStorage.getItem('voicekit_device_id'))")
+    print("      .then(r => r.json())")
+    print("      .then(d => console.log(d))")
+    print()
+    print("    You should see 'audio_url' with a res.cloudinary.com link.")
     print()
     print("=" * 60)
 
