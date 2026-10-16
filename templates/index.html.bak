@@ -2577,7 +2577,7 @@ speakBtn.onclick = speak;
 // INIT
 // ============================================================
 loadVoices();
-loadServerHistory();
+if (typeof loadServerHistory === 'function') { loadServerHistory(); }
 updateVoiceIndicator();
 setStatus('Ready. Pick a voice and hit Speak (Ctrl+Enter).');
 

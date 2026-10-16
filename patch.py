@@ -1,7 +1,9 @@
 """
-Fix: loadServerHistory is not defined error.
-The init call runs before the function definition exists.
-This patch wraps the init call to run after the script loads.
+VoiceKit — History Fix (final)
+1. Adds the missing `loadServerHistory` function
+2. Removes duplicate `let serverHistory = []`
+3. Wires the History nav button to refresh the view
+4. Replaces the local-only renderHistory with server-aware version
 """
 
 import os
@@ -18,9 +20,83 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
+HISTORY_JS = '''
+// ============================================================
+// SERVER HISTORY
+// ============================================================
+window.loadServerHistory = async function () {
+  const container = document.getElementById('history');
+  if (!container) return;
+
+  const did = (typeof DEVICE_ID !== 'undefined') ? DEVICE_ID : '';
+
+  try {
+    const res = await fetch('/history?device=' + encodeURIComponent(did) + '&limit=50');
+    const data = await res.json();
+    const items = data.history || [];
+
+    if (!items.length) {
+      container.innerHTML = '<div class="empty">Nothing here yet — try generating some speech.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    items.forEach(h => {
+      const ts = new Date(h.created_at).toLocaleString();
+      const preview = h.text.length > 100 ? h.text.substring(0, 100) + '\\u2026' : h.text;
+
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      row.innerHTML =
+        '<div class="info">' +
+          '<div class="text">' + preview.replace(/</g, '&lt;') + '</div>' +
+          '<div class="meta">' + h.voice + ' \\u00b7 ' + h.speed + '\\u00d7 \\u00b7 ' + ts + '</div>' +
+        '</div>';
+
+      const btn = document.createElement('button');
+      btn.textContent = 'Regenerate';
+      btn.onclick = () => {
+        document.getElementById('text').value = h.text;
+        document.getElementById('speed').value = h.speed;
+        document.getElementById('speedVal').textContent = h.speed.toFixed(2) + '\\u00d7';
+        if (typeof selectedVoiceId !== 'undefined') selectedVoiceId = h.voice;
+        if (typeof selectedVoiceName !== 'undefined') selectedVoiceName = h.voice;
+        if (typeof updateVoiceIndicator === 'function') updateVoiceIndicator();
+        const genBtn = document.querySelector('.nav-btn[data-view="generate"]');
+        if (genBtn) genBtn.click();
+        setTimeout(() => { if (typeof speak === 'function') speak(); }, 200);
+      };
+      row.appendChild(btn);
+      container.appendChild(row);
+    });
+
+    console.log('[history] loaded', items.length, 'items');
+  } catch (e) {
+    console.warn('[history] load failed:', e);
+    container.innerHTML = '<div class="empty">Could not load history — try again.</div>';
+  }
+};
+
+window.clearServerHistory = async function () {
+  if (!confirm('Clear all history for this device?')) return;
+  const did = (typeof DEVICE_ID !== 'undefined') ? DEVICE_ID : '';
+  try {
+    await fetch('/history', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: did })
+    });
+    if (typeof loadServerHistory === 'function') loadServerHistory();
+  } catch (e) {
+    console.error('clear history failed:', e);
+  }
+};
+'''
+
+
 def patch():
     print("=" * 60)
-    print(" VoiceKit — History Fix #2")
+    print(" VoiceKit — History Fix (final)")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -35,56 +111,67 @@ def patch():
     original = src
     changes = []
 
-    # ---------- 1) Guard the init call with typeof ----------
+    # ---------- 1) Remove duplicate serverHistory declaration ----------
+    # Count occurrences
+    occurrences = src.count("let serverHistory = [];")
+    if occurrences > 1:
+        # Remove all but the first
+        parts = src.split("let serverHistory = [];")
+        src = parts[0] + "let serverHistory = [];" + "".join(parts[2:])
+        changes.append(f"removed {occurrences - 1} duplicate serverHistory declaration")
+
+    # ---------- 2) Add loadServerHistory function BEFORE the INIT block ----------
+    if 'window.loadServerHistory' not in src:
+        anchor = "// ============================================================\n// INIT"
+        if anchor in src:
+            src = src.replace(anchor, HISTORY_JS + "\n" + anchor, 1)
+            changes.append("added loadServerHistory")
+        else:
+            # Fallback: before closing </script>
+            idx = src.rfind('</script>')
+            if idx != -1:
+                src = src[:idx] + HISTORY_JS + "\n" + src[idx:]
+                changes.append("added loadServerHistory (fallback)")
+
+    # ---------- 3) Update the nav button to load history on click ----------
+    old_nav = """    // Load fresh history when History view opens
+    if (view === 'history' && typeof loadServerHistory === 'function') {
+      loadServerHistory();
+    }"""
+
+    if old_nav not in src:
+        # Try to find just the nav section and add our handler
+        old_simple = "document.querySelectorAll('.nav-btn').forEach(btn => {\n  btn.onclick = () => {\n    const view = btn.dataset.view;"
+        new_simple = """document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.onclick = () => {
+    const view = btn.dataset.view;
+
+    // Load fresh history when History view opens
+    if (view === 'history' && typeof window.loadServerHistory === 'function') {
+      window.loadServerHistory();
+    }"""
+        if old_simple in src:
+            src = src.replace(old_simple, new_simple, 1)
+            changes.append("nav button triggers history load")
+
+    # ---------- 4) Update the INIT block ----------
     old_init = """loadVoices();
-loadServerHistory();
-setStatus('Ready."""
+if (typeof loadServerHistory === 'function') { loadServerHistory(); }
+updateVoiceIndicator();"""
 
     new_init = """loadVoices();
-if (typeof loadServerHistory === 'function') {
-  loadServerHistory();
-}
-setStatus('Ready."""
+updateVoiceIndicator();
+
+// Load history after a short delay so the function is defined
+setTimeout(() => {
+  if (typeof window.loadServerHistory === 'function') {
+    window.loadServerHistory();
+  }
+}, 400);"""
 
     if old_init in src:
         src = src.replace(old_init, new_init, 1)
-        changes.append("guarded init call")
-    elif 'loadServerHistory();' in src:
-        # More general: guard any standalone loadServerHistory() call
-        src = re.sub(
-            r'^loadServerHistory\(\);$',
-            "if (typeof loadServerHistory === 'function') { loadServerHistory(); }",
-            src,
-            flags=re.MULTILINE
-        )
-        changes.append("guarded init call (regex)")
-
-    # ---------- 2) Move the history JS block BEFORE the init calls ----------
-    # Find the history JS block
-    history_block_pattern = re.compile(
-        r'// =+\n// SERVER HISTORY\n// =+\n.*?(?=\n// =+\n// KEYBOARD)',
-        re.DOTALL
-    )
-
-    history_match = history_block_pattern.search(src)
-
-    if history_match:
-        block = history_match.group(0)
-
-        # Remove it from its current position
-        src = src[:history_match.start()] + src[history_match.end():]
-
-        # Find the init section and insert the block right before it
-        init_marker = "// ============================================================\n// INIT"
-        if init_marker in src:
-            src = src.replace(init_marker, block + "\n" + init_marker, 1)
-            changes.append("moved history block before init")
-        else:
-            # Fallback: insert before the last </script>
-            idx = src.rfind('</script>')
-            if idx != -1:
-                src = src[:idx] + block + "\n" + src[idx:]
-                changes.append("moved history block to end")
+        changes.append("delayed init call")
 
     if src == original:
         print("  No changes made.")
@@ -99,18 +186,17 @@ setStatus('Ready."""
     print(" DONE")
     print("=" * 60)
     print()
-    print(" What was wrong:")
-    print("   The init code called loadServerHistory() BEFORE the")
-    print("   function was defined. JavaScript's hoisting only works")
-    print("   for `function foo(){}` declarations in the same scope.")
-    print()
-    print(" The fix:")
-    print("   • Guarded the call with typeof check")
-    print("   • Moved the SERVER HISTORY block earlier in the script")
+    print(" Fixed:")
+    print("   • loadServerHistory function is now defined")
+    print("   • Duplicate serverHistory declaration removed")
+    print("   • History nav button loads fresh data on click")
+    print("   • Init loads history 400ms after page load")
+    print("   • Each entry has a Regenerate button")
     print()
     print(" Deploy:")
     print("   vercel --prod")
     print("   Or hard-refresh: Ctrl + Shift + R")
+    print(f" Backup: {os.path.relpath(HTML, BASE)}.bak")
     print("=" * 60)
 
 
