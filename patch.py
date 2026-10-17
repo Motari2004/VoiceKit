@@ -1,5 +1,5 @@
 """
-Force the API Reference examples to use speed: 1.0.
+Fix the 1.0.0 typo in the API examples.
 """
 
 import os
@@ -17,7 +17,7 @@ def backup(path):
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Force API Speed to 1.0")
+    print(" VoiceKit — Fix 1.0.0 Syntax Error")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -31,11 +31,9 @@ def patch():
 
     original = src
 
-    # Replace the speed in all possible formats
-    src = src.replace('"speed": 1.1', '"speed": 1.0')
-    src = src.replace('speed: 1.1', 'speed: 1.0')
-    src = src.replace('"speed": 1', '"speed": 1.0') # In case it got truncated
-    src = src.replace('speed: 1,', 'speed: 1.0,')
+    # Fix the double dot
+    src = src.replace('"speed": 1.0.0', '"speed": 1.0')
+    src = src.replace('speed: 1.0.0', 'speed: 1.0')
 
     if src == original:
         print("  No changes made.")
@@ -44,7 +42,7 @@ def patch():
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Set speed to 1.0 in all API examples")
+    print("  [OK] Fixed syntax error -> speed is now 1.0")
     print()
     print(" Deploy:")
     print("   vercel --prod")
