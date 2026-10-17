@@ -1,7 +1,7 @@
 """
-Handle the mobile back button.
-When the user is in a view other than Generate and presses back,
-it returns to Generate instead of exiting the app.
+Fix: Mobile back button still exiting on the first press.
+Pushes a base history state immediately on page load so the first
+back press is trapped and redirected to Generate.
 """
 
 import os
@@ -18,70 +18,64 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
+# Replace the previous back button logic with a more aggressive version
 NEW_JS = '''
 // ============================================================
-// MOBILE BACK BUTTON HANDLING
+// MOBILE BACK BUTTON HANDLING (FIXED)
 // ============================================================
 (function () {
-  // List of views we want to allow back navigation between
-  const VIEWS = ['generate', 'voices', 'history', 'api', 'about'];
+  // 1. Immediately push a dummy state so the FIRST back press 
+  // does not exit the app.
+  history.pushState({ view: 'generate', base: true }, '', '#generate');
 
-  function getCurrentView() {
-    const active = document.querySelector('.view.active');
-    return active ? active.id.replace('view-', '') : 'generate';
-  }
+  // 2. Whenever the user switches views via the sidebar
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const view = btn.dataset.view;
+      if (view && view !== 'generate') {
+        // Push a new state for this view
+        history.pushState({ view: view }, '', '#' + view);
+      }
+    });
+  });
 
+  // 3. Listen for back / forward
+  window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.view) {
+      // If the browser gives us a valid view state, switch to it
+      switchToView(e.state.view);
+    } else {
+      // If there is no state (user pressed back too fast or deep-linked),
+      // force them to Generate and push a new dummy state so they can't exit
+      switchToView('generate');
+      history.pushState({ view: 'generate', base: true }, '', '#generate');
+    }
+  });
+
+  // Helper function to actually change the visible view
   function switchToView(viewName) {
+    // Update sidebar buttons
     document.querySelectorAll('.nav-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.view === viewName);
     });
+
+    // Update visible view section
     document.querySelectorAll('.view').forEach(v => {
       v.classList.toggle('active', v.id === 'view-' + viewName);
     });
 
-    // Load history when needed
+    // Load history if needed
     if (viewName === 'history' && typeof window.loadServerHistory === 'function') {
       window.loadServerHistory();
     }
   }
-
-  // Push a history entry whenever the user changes views
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const view = btn.dataset.view;
-      if (view && view !== 'generate') {
-        history.pushState({ view }, '', '#' + view);
-      } else {
-        // Going back to Generate — replace, don't push
-        history.replaceState({ view: 'generate' }, '', '#generate');
-      }
-    });
-  });
-
-  // Listen for back / forward
-  window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.view) {
-      switchToView(e.state.view);
-    } else {
-      // Default: back to generate
-      const current = getCurrentView();
-      if (current !== 'generate') {
-        switchToView('generate');
-        // Push one more so future back presses don't exit
-        history.pushState({ view: 'generate' }, '', '#generate');
-      }
-    }
-  });
-
-  // Set the initial history state
-  history.replaceState({ view: getCurrentView() }, '', location.hash || '#generate');
 })();
 '''
 
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Mobile Back Button")
+    print(" VoiceKit — Fix Mobile Back Button Exit")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -93,11 +87,16 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    if 'MOBILE BACK BUTTON HANDLING' in src:
-        print("  Already applied.")
-        return
+    # Remove the old block if it exists
+    old_block_pattern = re.compile(
+        r'// =+\s*\n// MOBILE BACK BUTTON HANDLING.*?(?=\n</script>)',
+        re.DOTALL
+    )
+    if old_block_pattern.search(src):
+        src = old_block_pattern.sub('', src)
+        print("  Removed old back button logic")
 
-    # Append the JS before the closing </script>
+    # Append the new logic right before </script>
     idx = src.rfind('</script>')
     if idx == -1:
         print("  ERROR: no closing </script> found")
@@ -108,14 +107,13 @@ def patch():
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Mobile back button handler added")
+    print("  [OK] Mobile back button fixed")
     print()
-    print(" Behavior now:")
-    print("   • You're in Voices, tap back → goes to Generate")
-    print("   • You're in History, tap back → goes to Generate")
-    print("   • You're in API, tap back → goes to Generate")
-    print("   • You're in Generate, tap back → exits the site (normal)")
-    print("   • Browser forward button still works")
+    print(" How it works now:")
+    print("   • Page loads → a 'base' history state is pushed")
+    print("   • Tap Voices → 'voices' state is pushed")
+    print("   • Press Back → goes to Generate (does not exit)")
+    print("   • Press Back on Generate → exits (normal)")
     print()
     print(" Deploy:")
     print("   vercel --prod")
