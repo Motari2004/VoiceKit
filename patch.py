@@ -1,8 +1,8 @@
 """
-Fix: The Stats button appears, but the data doesn't load.
-- Adds a dedicated click listener specifically for the Stats button.
-- Includes the loadStats function directly in the patch to ensure it exists.
-- Adds a refresh button inside the Stats view.
+Update /stats to return FULL data:
+- Complete device_id (no truncation)
+- Raw user_agent string
+- Parsed device_type (iPhone, Android, etc.)
 """
 
 import os
@@ -10,7 +10,7 @@ import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-HTML = os.path.join(BASE, "templates", "index.html")
+APP  = os.path.join(BASE, "app.py")
 
 
 def backup(path):
@@ -19,177 +19,131 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-NEW_STATS_JS = '''
-// ============================================================
-// STATS DATA LOADER
-// ============================================================
-async function loadStats() {
-  console.log('[stats] Fetching data...');
-  
-  const totalEl     = document.getElementById('statTotal');
-  const uniqueEl    = document.getElementById('statUnique');
-  const todayEl     = document.getElementById('statToday');
-  const newEl       = document.getElementById('statNew');
-  const dailyEl     = document.getElementById('statsDaily');
-  const countriesEl = document.getElementById('statsCountries');
-  const pagesEl     = document.getElementById('statsPages');
-  const recentEl    = document.getElementById('statsRecent');
+NEW_STATS_ROUTE = '''@app.route("/stats")
+def stats():
+    """Return aggregate visit statistics. Admin only."""
+    device_id = (request.args.get("device") or "").strip()
+    if device_id not in ADMIN_DEVICES:
+        return jsonify({"error": "forbidden"}), 403
 
-  if (!totalEl) {
-    console.error('[stats] Stats view elements not found in DOM');
-    return;
-  }
+    if not DATABASE_URL:
+        return jsonify({"error": "no-db"}), 500
 
-  try {
-    const did = localStorage.getItem('voicekit_device_id') || '';
-    const res = await fetch('/stats?device=' + encodeURIComponent(did));
-    
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status);
-    }
-    
-    const s = await res.json();
-    console.log('[stats] Data received:', s);
+    try:
+        init_db()
 
-    // Update the numbers
-    totalEl.textContent  = s.total;
-    uniqueEl.textContent = s.unique_devices;
-    todayEl.textContent  = s.today;
-    newEl.textContent    = s.new_today;
+        total = db_execute("SELECT COUNT(*) AS n FROM visits", fetch_one=True)
+        unique = db_execute("SELECT COUNT(DISTINCT device_id) AS n FROM visits", fetch_one=True)
+        today = db_execute(
+            "SELECT COUNT(*) AS n FROM visits WHERE created_at > NOW() - INTERVAL '1 day'",
+            fetch_one=True,
+        )
+        new_today = db_execute(
+            "SELECT COUNT(*) AS n FROM visits "
+            "WHERE created_at > NOW() - INTERVAL '1 day' "
+            "AND device_id NOT IN ("
+            "  SELECT device_id FROM visits WHERE created_at < NOW() - INTERVAL '1 day'"
+            ")",
+            fetch_one=True,
+        )
+        countries = db_execute(
+            "SELECT country, COUNT(*) AS n FROM visits "
+            "WHERE country IS NOT NULL AND country != 'unknown' "
+            "GROUP BY country ORDER BY n DESC LIMIT 10",
+            fetch=True,
+        )
+        pages = db_execute(
+            "SELECT page, COUNT(*) AS n FROM visits "
+            "GROUP BY page ORDER BY n DESC LIMIT 10",
+            fetch=True,
+        )
+        daily = db_execute(
+            "SELECT DATE(created_at) AS day, COUNT(*) AS visits, "
+            "COUNT(DISTINCT device_id) AS uniques "
+            "FROM visits WHERE created_at > NOW() - INTERVAL '14 days' "
+            "GROUP BY DATE(created_at) ORDER BY day DESC",
+            fetch=True,
+        )
+        recent = db_execute(
+            "SELECT device_id, page, country, user_agent, created_at FROM visits "
+            "ORDER BY created_at DESC LIMIT 20",
+            fetch=True,
+        )
 
-    // Render Daily
-    if (s.daily && s.daily.length) {
-      dailyEl.innerHTML = '';
-      s.daily.forEach(d => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML = '<span>' + d.day + '</span><span>' + d.visits + ' visits · ' + d.uniques + ' unique</span>';
-        dailyEl.appendChild(row);
-      });
-    } else {
-      dailyEl.innerHTML = '<div class="empty">No visits yet</div>';
-    }
+        def detect_device(ua):
+            if not ua: return "unknown"
+            ua = ua.lower()
+            if "iphone" in ua: return "iPhone"
+            if "ipad" in ua: return "iPad"
+            if "android" in ua: return "Android"
+            if "mac os" in ua or "macintosh" in ua: return "Mac"
+            if "windows" in ua: return "Windows"
+            if "linux" in ua: return "Linux"
+            return "Other"
 
-    // Render Countries
-    if (s.countries && s.countries.length) {
-      countriesEl.innerHTML = '';
-      s.countries.forEach(c => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML = '<span>' + c.country + '</span><span>' + c.count + '</span>';
-        countriesEl.appendChild(row);
-      });
-    } else {
-      countriesEl.innerHTML = '<div class="empty">No data</div>';
-    }
+        return jsonify({
+            "total": total["n"] if total else 0,
+            "unique_devices": unique["n"] if unique else 0,
+            "today": today["n"] if today else 0,
+            "new_today": new_today["n"] if new_today else 0,
+            "countries": [{"country": r["country"], "count": r["n"]} for r in (countries or [])],
+            "pages": [{"page": r["page"], "count": r["n"]} for r in (pages or [])],
+            "daily": [
+                {"day": str(r["day"]), "visits": r["visits"], "uniques": r["uniques"]}
+                for r in (daily or [])
+            ],
+            "recent": [
+                {
+                    "full_device_id": r["device_id"],       # UNTRUNCATED
+                    "page": r["page"],
+                    "country": r["country"],
+                    "device_type": detect_device(r["user_agent"]),  # Parsed
+                    "user_agent": r["user_agent"],           # Raw string
+                    "at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in (recent or [])
+            ],
+        })
+    except Exception as e:
+        print(f"[stats] failed: {e}")
+        return jsonify({"error": str(e)[:200]}), 500
 
-    // Render Pages
-    if (s.pages && s.pages.length) {
-      pagesEl.innerHTML = '';
-      s.pages.forEach(p => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML = '<span>' + p.page + '</span><span>' + p.count + '</span>';
-        pagesEl.appendChild(row);
-      });
-    } else {
-      pagesEl.innerHTML = '<div class="empty">No data</div>';
-    }
-
-    // Render Recent
-    if (s.recent && s.recent.length) {
-      recentEl.innerHTML = '';
-      s.recent.forEach(r => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.78rem;font-family:monospace;';
-        const time = r.at ? new Date(r.at).toLocaleTimeString() : '';
-        row.innerHTML = '<span>' + r.device + ' → ' + r.page + '</span><span>' + r.country + ' · ' + time + '</span>';
-        recentEl.appendChild(row);
-      });
-    } else {
-      recentEl.innerHTML = '<div class="empty">No visits yet</div>';
-    }
-  } catch (e) {
-    console.error('[stats] Error loading data:', e);
-    if (dailyEl) dailyEl.innerHTML = '<div class="empty" style="color:#ef4444;">Error: ' + e.message + '</div>';
-  }
-}
-
-// Listen for clicks specifically on the Stats button
-document.addEventListener('DOMContentLoaded', () => {
-  const statsBtn = document.getElementById('statsNavBtn');
-  if (statsBtn) {
-    statsBtn.addEventListener('click', () => {
-      console.log('[stats] Button clicked, loading data...');
-      loadStats();
-    });
-  }
-});
 '''
+
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Fix Stats Data Loading")
+    print(" VoiceKit — Full Stats Data")
     print("=" * 60)
 
-    if not os.path.exists(HTML):
-        print(f"ERROR: {HTML} not found")
+    if not os.path.exists(APP):
+        print(f"ERROR: {APP} not found")
         return
 
-    backup(HTML)
+    backup(APP)
 
-    with open(HTML, "r", encoding="utf-8") as f:
+    with open(APP, "r", encoding="utf-8") as f:
         src = f.read()
 
-    # 1. Add a Refresh button to the Stats header if it doesn't exist
-    if 'id="refreshStats"' not in src:
-        header_pattern = r'(<div class="view-header">\s*<h1 class="view-title">Stats</h1>)'
-        if re.search(header_pattern, src):
-            # Just add the refresh button below the title
-            refresh_btn = '''
-      <button id="refreshStats" style="margin-top: 10px; padding: 6px 12px; background: transparent; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #b0b0b8; font-family: inherit; font-size: 0.75rem; cursor: pointer;">↻ Refresh Data</button>'''
-            src = re.sub(
-                r'(<p class="view-subtitle">Live visitor and usage analytics. Admin only.</p>)',
-                r'\1' + refresh_btn,
-                src
-            )
-            print("  [OK] Added Refresh button to Stats header")
+    original = src
 
-    # 2. Ensure the Refresh button actually calls loadStats
-    if 'refreshStats' in src and 'refreshStats.addEventListener' not in src:
-        refresh_js = '''
-// Wire up the refresh button
-document.addEventListener('DOMContentLoaded', () => {
-  const refreshBtn = document.getElementById('refreshStats');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      console.log('[stats] Refresh clicked');
-      loadStats();
-    });
-  }
-});
-'''
-        # Insert right before </script>
-        idx = src.rfind('</script>')
-        if idx != -1:
-            src = src[:idx] + refresh_js + '\n' + src[idx:]
-            print("  [OK] Wired up Refresh button")
-
-    # 3. Append the new Stats JS (overwriting any old loadStats functions)
-    # First, remove old loadStats definitions to avoid conflicts
-    src = re.sub(
-        r'async function loadStats\(\).*?(?=\nasync function|\n// =+|\n</script>)',
-        '',
-        src,
-        flags=re.DOTALL
+    # Match the entire /stats route
+    pattern = re.compile(
+        r'@app\.route\("/stats"\)\s*\ndef stats\(\):.*?(?=\n# =+|\n@app\.route|\Z)',
+        re.DOTALL
     )
 
-    idx = src.rfind('</script>')
-    if idx != -1:
-        src = src[:idx] + NEW_STATS_JS + '\n' + src[idx:]
-        print("  [OK] Injected new loadStats function")
+    if pattern.search(src):
+        src = pattern.sub(NEW_STATS_ROUTE + "\n", src, count=1)
+        print("  [OK] Replaced /stats route with full data version")
+    else:
+        print("  ERROR: Could not find /stats route")
 
-    with open(HTML, "w", encoding="utf-8") as f:
+    if src == original:
+        print("  No changes made.")
+        return
+
+    with open(APP, "w", encoding="utf-8") as f:
         f.write(src)
 
     print()
@@ -199,13 +153,14 @@ document.addEventListener('DOMContentLoaded', () => {
     print()
     print(" Deploy:")
     print("   vercel --prod")
-    print("   Hard-refresh: Ctrl + Shift + R")
     print()
-    print(" Then:")
-    print("   1. Click the Stats button.")
-    print("   2. Open the browser console (F12).")
-    print("   3. Look for '[stats] Data received:' — this shows the exact JSON.")
-    print("   4. If there's an error, it will appear in red.")
+    print(" Then run your curl again:")
+    print('   curl -s "https://voicekit-prod.vercel.app/stats?device=dev_tw41yvzz4kpmvb8ktba"')
+    print()
+    print(" You will now see:")
+    print("   - full_device_id (complete string)")
+    print("   - device_type (iPhone / Android / Mac / etc.)")
+    print("   - user_agent (raw browser string)")
     print("=" * 60)
 
 
