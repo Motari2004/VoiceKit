@@ -1,5 +1,5 @@
 """
-Update the API Reference examples to use af_alloy instead of am_michael.
+Force the API Reference examples to use speed: 1.0.
 """
 
 import os
@@ -17,7 +17,7 @@ def backup(path):
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Use af_alloy in API Examples")
+    print(" VoiceKit — Force API Speed to 1.0")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -31,13 +31,11 @@ def patch():
 
     original = src
 
-    # Replace the voice in the three examples
-    src = src.replace('"voice": "am_michael"', '"voice": "af_alloy"')
-    src = src.replace('voice: "am_michael"', 'voice: "af_alloy"')
-
-    # Also update the output filename since "podcast_intro" implies a male broadcaster
-    src = src.replace('-o podcast_intro.wav', '-o intro.wav')
-    src = src.replace('"podcast_intro.wav"', '"intro.wav"')
+    # Replace the speed in all possible formats
+    src = src.replace('"speed": 1.1', '"speed": 1.0')
+    src = src.replace('speed: 1.1', 'speed: 1.0')
+    src = src.replace('"speed": 1', '"speed": 1.0') # In case it got truncated
+    src = src.replace('speed: 1,', 'speed: 1.0,')
 
     if src == original:
         print("  No changes made.")
@@ -46,7 +44,7 @@ def patch():
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Changed voice to af_alloy and filename to intro.wav")
+    print("  [OK] Set speed to 1.0 in all API examples")
     print()
     print(" Deploy:")
     print("   vercel --prod")

@@ -2524,10 +2524,10 @@
   -H "Content-Type: application/json" \
   -d '{
     "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
-    "voice": "am_michael",
+    "voice": "af_alloy",
     "speed": 1.1
   }' \
-  -o podcast_intro.wav</code>
+  -o intro.wav</code>
       </div>
 
       <div class="api-block">
@@ -2538,12 +2538,12 @@ response = requests.post(
     "https://voicekit-prod.vercel.app/speak",
     json={
         "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
-        "voice": "am_michael",
+        "voice": "af_alloy",
         "speed": 1.1,
     },
 )
 
-with open("podcast_intro.wav", "wb") as f:
+with open("intro.wav", "wb") as f:
     f.write(response.content)</code>
       </div>
 
@@ -2556,7 +2556,7 @@ with open("podcast_intro.wav", "wb") as f:
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       text: "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
-      voice: "am_michael",
+      voice: "af_alloy",
       speed: 1.1,
     }),
   }
