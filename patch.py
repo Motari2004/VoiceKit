@@ -1,6 +1,5 @@
 """
-Make the News Brief and Meditation presets full sentences.
-Keep the others short.
+Make the Audiobook preset a longer, immersive sentence.
 """
 
 import os
@@ -19,7 +18,7 @@ def backup(path):
 
 NEW_QUICK_BUTTONS = '''      <div class="quick">
         <button data-p="Welcome back to the show.">Podcast Intro</button>
-        <button data-p="Chapter One. The story begins here.">Audiobook</button>
+        <button data-p="Chapter One. The story begins here. It was a cold morning in the city, and the streets were quiet.">Audiobook</button>
         <button data-p="Here is how it works.">Explainer</button>
         <button data-p="Introducing our new product.">Ad Read</button>
         <button data-p="In today's news, a major scientific breakthrough has been announced that could change the future of renewable energy.">News Brief</button>
@@ -29,7 +28,7 @@ NEW_QUICK_BUTTONS = '''      <div class="quick">
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Full Sentences for News & Meditation")
+    print(" VoiceKit — Longer Audiobook Preset")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -43,12 +42,12 @@ def patch():
 
     original = src
 
-    # Find the existing quick div and replace it
+    # Replace the quick div
     pattern = re.compile(r'<div class="quick">.*?</div>', re.DOTALL)
     
     if pattern.search(src):
         src = pattern.sub(NEW_QUICK_BUTTONS, src, count=1)
-        print("  [OK] Updated presets (News & Meditation are now full sentences)")
+        print("  [OK] Audiobook preset is now longer")
     else:
         print("  WARN: Could not find the quick phrases div")
 
