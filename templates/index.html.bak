@@ -2638,8 +2638,11 @@ const API_URL = "";
 // ============================================================
 // STATE
 // ============================================================
-let selectedVoiceId = "am_adam";
-let selectedVoiceName = "Adam";
+// Restore last used voice from localStorage, or default to Adam
+const _savedVoiceId = localStorage.getItem('voicekit_last_voice_id');
+const _savedVoiceName = localStorage.getItem('voicekit_last_voice_name');
+let selectedVoiceId = _savedVoiceId || "am_adam";
+let selectedVoiceName = _savedVoiceName || "Adam";
 let currentFilter = "all";
 let currentSearch = "";
 let voiceCatalog = null;
@@ -2903,6 +2906,10 @@ function selectVoice(id, name, chip) {
   selectedName.textContent = name;
   selectedId.textContent = id;
 
+  // Persist so it survives reload
+  localStorage.setItem('voicekit_last_voice_id', id);
+  localStorage.setItem('voicekit_last_voice_name', name);
+
   document.querySelectorAll('.voice-chip').forEach(c => c.classList.remove('selected'));
   chip.classList.add('selected');
   updateVoiceIndicator();
@@ -2916,6 +2923,12 @@ function updateVoiceIndicator() {
   const idEl   = document.getElementById('genVoiceId');
   if (nameEl) nameEl.textContent = selectedVoiceName;
   if (idEl)   idEl.textContent   = selectedVoiceId;
+
+  // Persist every time the indicator updates
+  if (selectedVoiceId) {
+    localStorage.setItem('voicekit_last_voice_id', selectedVoiceId);
+    localStorage.setItem('voicekit_last_voice_name', selectedVoiceName);
+  }
 }
 
 // "Change voice" button → jump to Voices view
