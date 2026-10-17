@@ -3489,62 +3489,57 @@ setTimeout(() => {
 }, 300);
 
 
+
+
 // ============================================================
-// MOBILE BACK BUTTON HANDLING
+// MOBILE BACK BUTTON HANDLING (FIXED)
 // ============================================================
 (function () {
-  // List of views we want to allow back navigation between
-  const VIEWS = ['generate', 'voices', 'history', 'api', 'about'];
+  // 1. Immediately push a dummy state so the FIRST back press 
+  // does not exit the app.
+  history.pushState({ view: 'generate', base: true }, '', '#generate');
 
-  function getCurrentView() {
-    const active = document.querySelector('.view.active');
-    return active ? active.id.replace('view-', '') : 'generate';
-  }
+  // 2. Whenever the user switches views via the sidebar
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const view = btn.dataset.view;
+      if (view && view !== 'generate') {
+        // Push a new state for this view
+        history.pushState({ view: view }, '', '#' + view);
+      }
+    });
+  });
 
+  // 3. Listen for back / forward
+  window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.view) {
+      // If the browser gives us a valid view state, switch to it
+      switchToView(e.state.view);
+    } else {
+      // If there is no state (user pressed back too fast or deep-linked),
+      // force them to Generate and push a new dummy state so they can't exit
+      switchToView('generate');
+      history.pushState({ view: 'generate', base: true }, '', '#generate');
+    }
+  });
+
+  // Helper function to actually change the visible view
   function switchToView(viewName) {
+    // Update sidebar buttons
     document.querySelectorAll('.nav-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.view === viewName);
     });
+
+    // Update visible view section
     document.querySelectorAll('.view').forEach(v => {
       v.classList.toggle('active', v.id === 'view-' + viewName);
     });
 
-    // Load history when needed
+    // Load history if needed
     if (viewName === 'history' && typeof window.loadServerHistory === 'function') {
       window.loadServerHistory();
     }
   }
-
-  // Push a history entry whenever the user changes views
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const view = btn.dataset.view;
-      if (view && view !== 'generate') {
-        history.pushState({ view }, '', '#' + view);
-      } else {
-        // Going back to Generate — replace, don't push
-        history.replaceState({ view: 'generate' }, '', '#generate');
-      }
-    });
-  });
-
-  // Listen for back / forward
-  window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.view) {
-      switchToView(e.state.view);
-    } else {
-      // Default: back to generate
-      const current = getCurrentView();
-      if (current !== 'generate') {
-        switchToView('generate');
-        // Push one more so future back presses don't exit
-        history.pushState({ view: 'generate' }, '', '#generate');
-      }
-    }
-  });
-
-  // Set the initial history state
-  history.replaceState({ view: getCurrentView() }, '', location.hash || '#generate');
 })();
 
 </script>
