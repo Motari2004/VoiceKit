@@ -806,10 +806,21 @@ def stats():
             fetch=True,
         )
         recent = db_execute(
-            "SELECT device_id, page, country, created_at FROM visits "
+            "SELECT device_id, page, country, user_agent, created_at FROM visits "
             "ORDER BY created_at DESC LIMIT 20",
             fetch=True,
         )
+
+        def detect_device(ua):
+            if not ua: return "unknown"
+            ua = ua.lower()
+            if "iphone" in ua: return "iPhone"
+            if "ipad" in ua: return "iPad"
+            if "android" in ua: return "Android"
+            if "mac os" in ua or "macintosh" in ua: return "Mac"
+            if "windows" in ua: return "Windows"
+            if "linux" in ua: return "Linux"
+            return "Other"
 
         return jsonify({
             "total": total["n"] if total else 0,
@@ -824,9 +835,11 @@ def stats():
             ],
             "recent": [
                 {
-                    "device": r["device_id"][:10] + "...",
+                    "full_device_id": r["device_id"],       # UNTRUNCATED
                     "page": r["page"],
                     "country": r["country"],
+                    "device_type": detect_device(r["user_agent"]),  # Parsed
+                    "user_agent": r["user_agent"],           # Raw string
                     "at": r["created_at"].isoformat() if r["created_at"] else None,
                 }
                 for r in (recent or [])
@@ -835,6 +848,7 @@ def stats():
     except Exception as e:
         print(f"[stats] failed: {e}")
         return jsonify({"error": str(e)[:200]}), 500
+
 
 
 # ============================================================
