@@ -2410,12 +2410,13 @@
       </div>
 
       <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not me talking.</textarea>
-      <div class="quick">
-        <button data-p="Listen closely. You can barely tell this is not me talking.">Natural voice</button>
-        <button data-p="Hello world, this is my voice.">Hello world</button>
-        <button data-p="One two three four, hit the kick and drop the snare.">Beat drop</button>
-        <button data-p="Reggae in the valley, one drop at a time.">Reggae</button>
-        <button data-p="The night is young and the bass is deep.">Night vibe</button>
+            <div class="quick">
+        <button data-p="Welcome back to the show.">Podcast Intro</button>
+        <button data-p="Chapter One. The story begins here.">Audiobook</button>
+        <button data-p="Here is how it works.">Explainer</button>
+        <button data-p="Introducing our new product.">Ad Read</button>
+        <button data-p="In today's news, a major breakthrough.">News Brief</button>
+        <button data-p="Relax. Close your eyes.">Meditation</button>
       </div>
     </div>
 
