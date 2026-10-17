@@ -3636,175 +3636,47 @@ setTimeout(() => {
 })();
 
 
-// ============================================================
-// VISIT TRACKING + ADMIN STATS
-// ============================================================
-async function trackVisit(page) {
-  try {
-    await fetch('/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        device: DEVICE_ID,
-        page: page || 'generate',
-        referrer: document.referrer || ''
-      })
-    });
-  } catch (e) {
-    // silent
-  }
-}
-
-// Track every view switch
-document.querySelectorAll('.nav-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const view = btn.dataset.view;
-    if (view) trackVisit(view);
-  });
-});
-
-// Track initial load
-trackVisit('generate');
-
-// ---------- Admin detection ----------
-async function checkAdmin() {
-  try {
-    const res = await fetch('/is-admin?device=' + encodeURIComponent(DEVICE_ID));
-    const data = await res.json();
-    if (data.admin) {
-      document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = '';
-      });
-      console.log('[admin] mode enabled');
-    }
-  } catch (e) {
-    console.warn('[admin] check failed:', e);
-  }
-}
-checkAdmin();
-
-// ---------- Stats loading ----------
 
 // ============================================================
-(async function forceAdminButton() {
-  try {
-    // 1. Get device ID
-    const did = localStorage.getItem('voicekit_device_id') || '';
-    if (!did) return;
-
-    // 2. Check with the server
-    const res = await fetch('/is-admin?device=' + encodeURIComponent(did));
-    const data = await res.json();
-
-    if (!data.admin) return;  // Not an admin, do nothing
-
-    console.log('[admin] confirmed — revealing Stats button');
-
-    // 3. Find the button in the DOM
-    let statsBtn = document.querySelector('.nav-btn[data-view="stats"]');
-
-    // 4. If the button doesn't exist at all, create and insert it
-    if (!statsBtn) {
-      console.log('[admin] creating Stats button from scratch');
-
-      const navSections = document.querySelectorAll('.nav-section');
-      const devSection = navSections[navSections.length - 1]; // Developers section
-
-      if (devSection) {
-        statsBtn = document.createElement('button');
-        statsBtn.className = 'nav-btn';
-        statsBtn.dataset.view = 'stats';
-        statsBtn.innerHTML = `
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="20" x2="12" y2="10"></line>
-            <line x1="18" y1="20" x2="18" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="16"></line>
-          </svg>
-          Stats
-        `;
-        devSection.appendChild(statsBtn);
-
-        // Wire up the click event to show the stats view
-        statsBtn.addEventListener('click', () => {
-          document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-          statsBtn.classList.add('active');
-          document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-          const target = document.getElementById('view-stats');
-          if (target) target.classList.add('active');
-          
-          // Trigger stats load if the function exists
-          if (typeof loadStats === 'function') loadStats();
-          
-          // Close mobile sidebar
-          const sidebar = document.getElementById('sidebar');
-          const overlay = document.getElementById('overlay');
-          if (sidebar) sidebar.classList.remove('open');
-          if (overlay) overlay.classList.remove('show');
-        });
+// MOBILE BACK BUTTON HANDLING (simple)
+// ============================================================
+(function () {
+  history.pushState({ view: 'generate', base: true }, '', '#generate');
+  
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const view = btn.dataset.view;
+      if (view && view !== 'generate') {
+        history.pushState({ view: view }, '', '#' + view);
       }
-    }
+    });
+  });
 
-    // 5. Force it to be visible regardless of CSS
-    if (statsBtn) {
-      statsBtn.style.display = 'flex';
-      statsBtn.style.visibility = 'visible';
-      statsBtn.classList.remove('admin-only');
-      statsBtn.classList.add('admin-visible');
+  window.addEventListener('popstate', (e) => {
+    if (e.state && e.state.view) {
+      switchToView(e.state.view);
+    } else {
+      switchToView('generate');
+      history.pushState({ view: 'generate', base: true }, '', '#generate');
     }
+  });
 
-  } catch (e) {
-    console.warn('[admin] force reveal failed:', e);
+  function switchToView(viewName) {
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === viewName);
+    });
+    document.querySelectorAll('.view').forEach(v => {
+      v.classList.toggle('active', v.id === 'view-' + viewName);
+    });
+    if (viewName === 'history' && typeof window.loadServerHistory === 'function') {
+      window.loadServerHistory();
+    }
   }
 })();
 
 
-
 // ============================================================
-setTimeout(async () => {
-  try {
-    const did = localStorage.getItem('voicekit_device_id');
-    if (!did) return;
-
-    const res = await fetch('/is-admin?device=' + encodeURIComponent(did));
-    const data = await res.json();
-
-    console.log('[admin-check] status:', data);
-
-    if (data.admin) {
-      const btn = document.getElementById('statsNavBtn');
-      if (btn) {
-        btn.style.display = 'flex';
-        console.log('[admin-check] Stats button revealed');
-      } else {
-        console.error('[admin-check] Stats button NOT FOUND in DOM');
-      }
-    }
-  } catch (e) {
-    console.error('[admin-check] error:', e);
-  }
-}, 1000); // Wait 1 second to ensure everything is loaded
-
-
-// Wire up the refresh button
-document.addEventListener('DOMContentLoaded', () => {
-  const refreshBtn = document.getElementById('refreshStats');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      console.log('[stats] Refresh clicked');
-      loadStats();
-    });
-  }
-});
-
-
-// ============================================================
-// STATS DATA LOADER
-// ============================================================
-
-
-
-// ============================================================
-// STATS UI RENDER (history-based)
+// STATS LOADER (clean)
 // ============================================================
 async function loadStats() {
   console.log('[stats] Loading...');
@@ -3814,23 +3686,16 @@ async function loadStats() {
   const todayEl     = document.getElementById('statToday');
   const newEl       = document.getElementById('statNew');
   const dailyEl     = document.getElementById('statsDaily');
-  const countriesEl = document.getElementById('statsCountries');
-  const pagesEl     = document.getElementById('statsPages');
+  const voicesEl    = document.getElementById('statsCountries');
   const recentEl    = document.getElementById('statsRecent');
 
-  if (!totalEl) {
-    console.error('[stats] Stats view not in DOM');
-    return;
-  }
+  if (!totalEl) return;
 
   try {
     const did = localStorage.getItem('voicekit_device_id') || '';
     const res = await fetch('/stats?device=' + encodeURIComponent(did));
-
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const s = await res.json();
-
-    console.log('[stats] Received:', s);
 
     // Numbers
     totalEl.textContent  = s.total;
@@ -3844,62 +3709,42 @@ async function loadStats() {
       s.daily.forEach(d => {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML =
-          '<span>' + d.day + '</span>' +
-          '<span>' + d.visits + ' generations · ' + d.uniques + ' devices</span>';
+        row.innerHTML = '<span>' + d.day + '</span><span>' + d.visits + ' gens · ' + d.uniques + ' devices</span>';
         dailyEl.appendChild(row);
       });
     } else {
       dailyEl.innerHTML = '<div class="empty">No activity yet</div>';
     }
 
-    // Top voices (this was "pages")
+    // Top voices
     if (s.pages && s.pages.length) {
-      countriesEl.innerHTML = '';  // repurpose the countries card
+      voicesEl.innerHTML = '';
       s.pages.forEach(v => {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML =
-          '<span>' + v.page + '</span>' +
-          '<span>' + v.count + ' ×</span>';
-        countriesEl.appendChild(row);
+        row.innerHTML = '<span>' + v.page + '</span><span>' + v.count + ' ×</span>';
+        voicesEl.appendChild(row);
       });
-      // Update the heading above this card
-      const h = countriesEl.closest('.card').querySelector('.card-title');
-      if (h) h.textContent = 'Top Voices';
     } else {
-      countriesEl.innerHTML = '<div class="empty">No voices used yet</div>';
+      voicesEl.innerHTML = '<div class="empty">No voices yet</div>';
     }
 
-    // Pages card — hide or clear (we already show voices above)
-    if (pagesEl) {
-      pagesEl.innerHTML = '<div class="empty">See "Top Voices" above</div>';
-      const h = pagesEl.closest('.card').querySelector('.card-title');
-      if (h) h.textContent = 'Details';
-    }
-
-    // Recent generations
+    // Recent
     if (s.recent && s.recent.length) {
       recentEl.innerHTML = '';
       s.recent.forEach(r => {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);';
         const time = r.at ? new Date(r.at).toLocaleString() : '';
-
-        // Device + voice + time
-        const top = document.createElement('div');
-        top.style.cssText = 'display:flex;justify-content:space-between;font-size:0.78rem;';
-        top.innerHTML =
-          '<span style="color:#fff;">' + r.device_type + '</span>' +
-          '<span style="color:#666;font-family:monospace;">' + time + '</span>';
-
-        // Device ID and preview
-        const bot = document.createElement('div');
-        bot.style.cssText = 'font-size:0.7rem;color:#888;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-        bot.textContent = r.full_device_id + ' — ' + r.user_agent;
-
-        row.appendChild(top);
-        row.appendChild(bot);
+        
+        row.innerHTML = 
+          '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#fff;">' +
+            '<span>' + r.device_type + ' <span style="color:#888;font-family:monospace;">(' + r.full_device_id.slice(0,8) + '...)</span></span>' +
+            '<span style="color:#666;font-family:monospace;">' + time + '</span>' +
+          '</div>' +
+          '<div style="font-size:0.72rem;color:#aaa;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+            '"' + r.user_agent + '"' +
+          '</div>';
         recentEl.appendChild(row);
       });
     } else {
@@ -3913,13 +3758,11 @@ async function loadStats() {
   }
 }
 
-// Wire up the Stats button
+// Wire buttons
 document.addEventListener('DOMContentLoaded', () => {
   const statsBtn = document.getElementById('statsNavBtn');
   if (statsBtn) {
-    statsBtn.addEventListener('click', () => {
-      setTimeout(loadStats, 100);
-    });
+    statsBtn.addEventListener('click', () => setTimeout(loadStats, 100));
   }
   const refreshBtn = document.getElementById('refreshStats');
   if (refreshBtn) {

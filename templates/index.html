@@ -2643,21 +2643,22 @@ new Audio(URL.createObjectURL(blob)).play();</code>
   </section>
 
 
+  
   <!-- ---------- VIEW: STATS (admin only) ---------- -->
   <section class="view" id="view-stats">
     <div class="view-header">
       <h1 class="view-title">Stats</h1>
-      <p class="view-subtitle">Live visitor and usage analytics. Admin only.</p>
+      <p class="view-subtitle">Live usage analytics.</p>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
         <div class="value" id="statTotal">—</div>
-        <div class="label">Total Visits</div>
+        <div class="label">Total Gens</div>
       </div>
       <div class="stat-card">
         <div class="value" id="statUnique">—</div>
-        <div class="label">Unique Devices</div>
+        <div class="label">Devices</div>
       </div>
       <div class="stat-card">
         <div class="value" id="statToday">—</div>
@@ -2672,41 +2673,102 @@ new Audio(URL.createObjectURL(blob)).play();</code>
     <div class="card">
       <div class="card-header">
         <span class="card-title">Last 14 Days</span>
-        <button id="refreshStats" style="
-          padding: 6px 12px;
-          background: transparent;
-          border: 1px solid rgba(255,255,255,0.15);
-          border-radius: 6px;
-          color: #b0b0b8;
-          font-family: inherit;
-          font-size: 0.72rem;
-          cursor: pointer;
-        ">↻ Refresh</button>
       </div>
       <div id="statsDaily"><div class="empty">Loading...</div></div>
     </div>
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Top Countries</span>
+        <span class="card-title">Top Voices</span>
       </div>
       <div id="statsCountries"><div class="empty">Loading...</div></div>
     </div>
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Top Pages</span>
-      </div>
-      <div id="statsPages"><div class="empty">Loading...</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Recent Visits</span>
+        <span class="card-title">Recent Generations</span>
       </div>
       <div id="statsRecent"><div class="empty">Loading...</div></div>
     </div>
+
+    <!-- Script runs ONLY when this view is visible -->
+    <script>
+      (async function() {
+        console.log('[stats] View opened, loading data...');
+        
+        const did = localStorage.getItem('voicekit_device_id') || '';
+        if (!did) return;
+
+        const totalEl  = document.getElementById('statTotal');
+        const uniqueEl = document.getElementById('statUnique');
+        const todayEl  = document.getElementById('statToday');
+        const newEl    = document.getElementById('statNew');
+        const dailyEl  = document.getElementById('statsDaily');
+        const voicesEl = document.getElementById('statsCountries');
+        const recentEl = document.getElementById('statsRecent');
+
+        try {
+          const res = await fetch('/stats?device=' + encodeURIComponent(did));
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const s = await res.json();
+
+          totalEl.textContent  = s.total;
+          uniqueEl.textContent = s.unique_devices;
+          todayEl.textContent  = s.today;
+          newEl.textContent    = s.new_today;
+
+          // Daily
+          if (s.daily && s.daily.length) {
+            dailyEl.innerHTML = '';
+            s.daily.forEach(d => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+              row.innerHTML = '<span>' + d.day + '</span><span>' + d.visits + ' gens · ' + d.uniques + ' devices</span>';
+              dailyEl.appendChild(row);
+            });
+          } else { dailyEl.innerHTML = '<div class="empty">No data</div>'; }
+
+          // Voices
+          if (s.pages && s.pages.length) {
+            voicesEl.innerHTML = '';
+            s.pages.forEach(v => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+              row.innerHTML = '<span>' + v.page + '</span><span>' + v.count + ' ×</span>';
+              voicesEl.appendChild(row);
+            });
+          } else { voicesEl.innerHTML = '<div class="empty">No data</div>'; }
+
+          // Recent
+          if (s.recent && s.recent.length) {
+            recentEl.innerHTML = '';
+            s.recent.forEach(r => {
+              const row = document.createElement('div');
+              row.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);';
+              const time = r.at ? new Date(r.at).toLocaleString() : '';
+              
+              row.innerHTML = 
+                '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#fff;">' +
+                  '<span>' + r.device_type + ' <span style="color:#888;font-family:monospace;">(' + r.full_device_id.slice(0,8) + '...)</span></span>' +
+                  '<span style="color:#666;font-family:monospace;">' + time + '</span>' +
+                '</div>' +
+                '<div style="font-size:0.72rem;color:#aaa;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+                  '"' + r.user_agent + '"' +
+                '</div>';
+              recentEl.appendChild(row);
+            });
+          } else { recentEl.innerHTML = '<div class="empty">No data</div>'; }
+
+          console.log('[stats] Data rendered successfully');
+
+        } catch (e) {
+          console.error('[stats] Failed:', e);
+          dailyEl.innerHTML = '<div class="empty" style="color:#ef4444;">Error: ' + e.message + '</div>';
+        }
+      })();
+    </script>
   </section>
+
 
 </main>
 
@@ -3640,39 +3702,7 @@ setTimeout(() => {
 // ============================================================
 // MOBILE BACK BUTTON HANDLING (simple)
 // ============================================================
-(function () {
-  history.pushState({ view: 'generate', base: true }, '', '#generate');
-  
-  document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const view = btn.dataset.view;
-      if (view && view !== 'generate') {
-        history.pushState({ view: view }, '', '#' + view);
-      }
-    });
-  });
 
-  window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.view) {
-      switchToView(e.state.view);
-    } else {
-      switchToView('generate');
-      history.pushState({ view: 'generate', base: true }, '', '#generate');
-    }
-  });
-
-  function switchToView(viewName) {
-    document.querySelectorAll('.nav-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.view === viewName);
-    });
-    document.querySelectorAll('.view').forEach(v => {
-      v.classList.toggle('active', v.id === 'view-' + viewName);
-    });
-    if (viewName === 'history' && typeof window.loadServerHistory === 'function') {
-      window.loadServerHistory();
-    }
-  }
-})();
 
 
 // ============================================================
