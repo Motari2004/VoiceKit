@@ -1,6 +1,6 @@
 """
-Add 1 second of silence before the audio starts.
-This fixes the 'quiet start' issue and prevents browser clipping.
+Remove all audio processing (silence and volume fix) from Vercel.
+Let the Hugging Face Space handle the audio processing.
 """
 
 import os
@@ -17,51 +17,9 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-# New helper function
-ADD_SILENCE_HELPER = '''
-# ============================================================
-# AUDIO POST-PROCESSING (Lead-in Silence)
-# ============================================================
-def add_lead_silence(wav_bytes, seconds=1.0):
-    """
-    Adds pure silence to the start of the WAV.
-    Fixes the 'quiet start' issue and prevents browser clipping.
-    """
-    try:
-        import numpy as np
-        import soundfile as sf
-        import io
-
-        # Read WAV
-        data, samplerate = sf.read(io.BytesIO(wav_bytes), dtype='float32')
-        
-        # Create silence
-        silence_samples = int(samplerate * seconds)
-        
-        if data.ndim > 1:
-            # Stereo
-            silence = np.zeros((silence_samples, data.shape[1]), dtype='float32')
-        else:
-            # Mono
-            silence = np.zeros(silence_samples, dtype='float32')
-        
-        # Concatenate silence + audio
-        new_data = np.concatenate([silence, data], axis=0)
-        
-        # Write back to WAV
-        out = io.BytesIO()
-        sf.write(out, new_data, samplerate, format='WAV', subtype='PCM_16')
-        return out.getvalue()
-
-    except Exception as e:
-        print(f"[audio-silence] failed: {e}")
-        return wav_bytes  # Return original if anything breaks
-'''
-
-
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Add 1 Second Lead Silence")
+    print(" VoiceKit — Remove Vercel Audio Processing")
     print("=" * 60)
 
     if not os.path.exists(APP):
@@ -75,27 +33,8 @@ def patch():
 
     original = src
 
-    # 1. Insert the helper function before "# ROUTES"
-    if 'def add_lead_silence' not in src:
-        anchor = "# ============================================================\n# ROUTES"
-        if anchor in src:
-            src = src.replace(anchor, ADD_SILENCE_HELPER + "\n" + anchor, 1)
-            print("  [OK] Added add_lead_silence() function")
-        else:
-            print("  WARN: Could not find ROUTES anchor")
-
-    # 2. Call the silence function inside /speak after generating the WAV
-    # Look for where we added fix_audio_attack earlier, or just after generate_speech
+    # 1. Revert the /speak route to NOT call the audio fixes
     old_speak = '''        # Generate (with silent retries)
-        print(f"[speak] generating: {text[:40]!r} voice={voice}")
-        wav_bytes = generate_speech(text, voice, speed)
-        print(f"[speak] generated {len(wav_bytes)} bytes")
-
-        # Fix the quiet-start issue
-        wav_bytes = fix_audio_attack(wav_bytes)
-        print(f"[speak] after audio fix: {len(wav_bytes)} bytes")'''
-
-    new_speak = '''        # Generate (with silent retries)
         print(f"[speak] generating: {text[:40]!r} voice={voice}")
         wav_bytes = generate_speech(text, voice, speed)
         print(f"[speak] generated {len(wav_bytes)} bytes")
@@ -107,19 +46,38 @@ def patch():
         wav_bytes = add_lead_silence(wav_bytes, seconds=1.0)
         print(f"[speak] after audio processing: {len(wav_bytes)} bytes")'''
 
+    new_speak = '''        # Generate (with silent retries)
+        print(f"[speak] generating: {text[:40]!r} voice={voice}")
+        wav_bytes = generate_speech(text, voice, speed)
+        print(f"[speak] generated {len(wav_bytes)} bytes")'''
+
     if old_speak in src:
         src = src.replace(old_speak, new_speak, 1)
-        print("  [OK] Wired add_lead_silence into /speak")
+        print("  [OK] Removed audio processing from /speak route")
     else:
-        # Fallback: just add it after generate_speech if the old block wasn't found
-        fallback_old = '''        wav_bytes = generate_speech(text, voice, speed)'''
-        fallback_new = '''        wav_bytes = generate_speech(text, voice, speed)
-        wav_bytes = add_lead_silence(wav_bytes, seconds=1.0)'''
-        if fallback_old in src:
-            src = src.replace(fallback_old, fallback_new, 1)
-            print("  [OK] Wired add_lead_silence (fallback)")
-        else:
-            print("  WARN: Could not find /speak generation block")
+        # Fallback: just remove the lines individually
+        src = src.replace('        wav_bytes = fix_audio_attack(wav_bytes)\n', '')
+        src = src.replace('        wav_bytes = add_lead_silence(wav_bytes, seconds=1.0)\n', '')
+        src = src.replace('        print(f"[speak] after audio processing: {len(wav_bytes)} bytes")\n', '')
+        print("  [OK] Removed audio processing lines (fallback)")
+
+    # 2. Remove the fix_audio_attack function block
+    pattern1 = re.compile(
+        r'# =+\s*\n# AUDIO POST-PROCESSING\s*\n# =+\s*\n\ndef fix_audio_attack\(.*?(?=\n# =+|\n@app\.route|\Z)',
+        re.DOTALL
+    )
+    if pattern1.search(src):
+        src = pattern1.sub('', src)
+        print("  [OK] Removed fix_audio_attack() function")
+
+    # 3. Remove the add_lead_silence function block
+    pattern2 = re.compile(
+        r'# =+\s*\n# AUDIO POST-PROCESSING \(Lead-in Silence\)\s*\n# =+\s*\n\ndef add_lead_silence\(.*?(?=\n# =+|\n@app\.route|\Z)',
+        re.DOTALL
+    )
+    if pattern2.search(src):
+        src = pattern2.sub('', src)
+        print("  [OK] Removed add_lead_silence() function")
 
     if src == original:
         print("  No changes made.")
@@ -132,14 +90,11 @@ def patch():
     print("=" * 60)
     print(" DONE")
     print("=" * 60)
-    print()
     print(" Deploy:")
     print("   vercel --prod")
     print()
-    print(" What it does:")
-    print("   • Adds exactly 1.0 second of pure silence to the start of every WAV.")
-    print("   • Prevents the browser from clipping the first word.")
-    print("   • Fixes the 'quiet start' issue permanently.")
+    print(" Vercel now sends the audio straight through.")
+    print(" The 1.5s silence is handled entirely by Hugging Face.")
     print("=" * 60)
 
 
