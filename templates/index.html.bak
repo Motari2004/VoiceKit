@@ -3115,7 +3115,7 @@ function renderVoicePicker() {
     block.dataset.lang = lang;
     block.innerHTML = '<div class="voice-lang-header">' + lang + '</div>';
 
-    ['Female', 'Male'].forEach(gender => {
+    ['Male', 'Female'].forEach(gender => {
       const voices = groups[gender];
       if (!voices || voices.length === 0) return;
 
