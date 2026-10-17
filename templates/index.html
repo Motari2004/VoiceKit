@@ -3756,6 +3756,81 @@ document.addEventListener('click', (e) => {
   if (e.target.id === 'refreshStats') loadStats();
 });
 
+
+// ============================================================
+// FORCE ADMIN STATS BUTTON
+// ============================================================
+(async function forceAdminButton() {
+  try {
+    // 1. Get device ID
+    const did = localStorage.getItem('voicekit_device_id') || '';
+    if (!did) return;
+
+    // 2. Check with the server
+    const res = await fetch('/is-admin?device=' + encodeURIComponent(did));
+    const data = await res.json();
+
+    if (!data.admin) return;  // Not an admin, do nothing
+
+    console.log('[admin] confirmed — revealing Stats button');
+
+    // 3. Find the button in the DOM
+    let statsBtn = document.querySelector('.nav-btn[data-view="stats"]');
+
+    // 4. If the button doesn't exist at all, create and insert it
+    if (!statsBtn) {
+      console.log('[admin] creating Stats button from scratch');
+
+      const navSections = document.querySelectorAll('.nav-section');
+      const devSection = navSections[navSections.length - 1]; // Developers section
+
+      if (devSection) {
+        statsBtn = document.createElement('button');
+        statsBtn.className = 'nav-btn';
+        statsBtn.dataset.view = 'stats';
+        statsBtn.innerHTML = `
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="20" x2="12" y2="10"></line>
+            <line x1="18" y1="20" x2="18" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="16"></line>
+          </svg>
+          Stats
+        `;
+        devSection.appendChild(statsBtn);
+
+        // Wire up the click event to show the stats view
+        statsBtn.addEventListener('click', () => {
+          document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+          statsBtn.classList.add('active');
+          document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+          const target = document.getElementById('view-stats');
+          if (target) target.classList.add('active');
+          
+          // Trigger stats load if the function exists
+          if (typeof loadStats === 'function') loadStats();
+          
+          // Close mobile sidebar
+          const sidebar = document.getElementById('sidebar');
+          const overlay = document.getElementById('overlay');
+          if (sidebar) sidebar.classList.remove('open');
+          if (overlay) overlay.classList.remove('show');
+        });
+      }
+    }
+
+    // 5. Force it to be visible regardless of CSS
+    if (statsBtn) {
+      statsBtn.style.display = 'flex';
+      statsBtn.style.visibility = 'visible';
+      statsBtn.classList.remove('admin-only');
+      statsBtn.classList.add('admin-visible');
+    }
+
+  } catch (e) {
+    console.warn('[admin] force reveal failed:', e);
+  }
+})();
+
 </script>
 </body>
 </html>
