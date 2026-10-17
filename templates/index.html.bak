@@ -3684,97 +3684,6 @@ async function checkAdmin() {
 checkAdmin();
 
 // ---------- Stats loading ----------
-async function loadStats() {
-  const totalEl     = document.getElementById('statTotal');
-  const uniqueEl    = document.getElementById('statUnique');
-  const todayEl     = document.getElementById('statToday');
-  const newEl       = document.getElementById('statNew');
-  const dailyEl     = document.getElementById('statsDaily');
-  const countriesEl = document.getElementById('statsCountries');
-  const pagesEl     = document.getElementById('statsPages');
-  const recentEl    = document.getElementById('statsRecent');
-
-  if (!totalEl) return; // Stats view not on page
-
-  try {
-    const res = await fetch('/stats?device=' + encodeURIComponent(DEVICE_ID));
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const s = await res.json();
-
-    totalEl.textContent  = s.total;
-    uniqueEl.textContent = s.unique_devices;
-    todayEl.textContent  = s.today;
-    newEl.textContent    = s.new_today;
-
-    // Daily
-    if (s.daily.length) {
-      dailyEl.innerHTML = '';
-      s.daily.forEach(d => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML = '<span>' + d.day + '</span><span>' + d.visits + ' visits · ' + d.uniques + ' unique</span>';
-        dailyEl.appendChild(row);
-      });
-    } else {
-      dailyEl.innerHTML = '<div class="empty">No visits yet</div>';
-    }
-
-    // Countries
-    if (s.countries.length) {
-      countriesEl.innerHTML = '';
-      s.countries.forEach(c => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML = '<span>' + c.country + '</span><span>' + c.count + '</span>';
-        countriesEl.appendChild(row);
-      });
-    } else {
-      countriesEl.innerHTML = '<div class="empty">No data</div>';
-    }
-
-    // Pages
-    if (s.pages.length) {
-      pagesEl.innerHTML = '';
-      s.pages.forEach(p => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
-        row.innerHTML = '<span>' + p.page + '</span><span>' + p.count + '</span>';
-        pagesEl.appendChild(row);
-      });
-    } else {
-      pagesEl.innerHTML = '<div class="empty">No data</div>';
-    }
-
-    // Recent
-    if (s.recent.length) {
-      recentEl.innerHTML = '';
-      s.recent.forEach(r => {
-        const row = document.createElement('div');
-        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.78rem;font-family:monospace;';
-        const time = r.at ? new Date(r.at).toLocaleTimeString() : '';
-        row.innerHTML = '<span>' + r.device + ' → ' + r.page + '</span><span>' + r.country + ' · ' + time + '</span>';
-        recentEl.appendChild(row);
-      });
-    } else {
-      recentEl.innerHTML = '<div class="empty">No visits yet</div>';
-    }
-  } catch (e) {
-    console.error('[stats] load failed:', e);
-    if (dailyEl) dailyEl.innerHTML = '<div class="empty" style="color:#ef4444;">Failed to load stats</div>';
-  }
-}
-
-// Load stats when the Stats view opens
-document.querySelectorAll('.nav-btn[data-view="stats"]').forEach(btn => {
-  btn.addEventListener('click', () => setTimeout(loadStats, 100));
-});
-
-// Refresh button
-document.addEventListener('click', (e) => {
-  if (e.target.id === 'refreshStats') loadStats();
-});
-
-
 
 // ============================================================
 (async function forceAdminButton() {
@@ -3874,6 +3783,125 @@ setTimeout(async () => {
     console.error('[admin-check] error:', e);
   }
 }, 1000); // Wait 1 second to ensure everything is loaded
+
+
+// Wire up the refresh button
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshBtn = document.getElementById('refreshStats');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      console.log('[stats] Refresh clicked');
+      loadStats();
+    });
+  }
+});
+
+
+// ============================================================
+// STATS DATA LOADER
+// ============================================================
+async function loadStats() {
+  console.log('[stats] Fetching data...');
+  
+  const totalEl     = document.getElementById('statTotal');
+  const uniqueEl    = document.getElementById('statUnique');
+  const todayEl     = document.getElementById('statToday');
+  const newEl       = document.getElementById('statNew');
+  const dailyEl     = document.getElementById('statsDaily');
+  const countriesEl = document.getElementById('statsCountries');
+  const pagesEl     = document.getElementById('statsPages');
+  const recentEl    = document.getElementById('statsRecent');
+
+  if (!totalEl) {
+    console.error('[stats] Stats view elements not found in DOM');
+    return;
+  }
+
+  try {
+    const did = localStorage.getItem('voicekit_device_id') || '';
+    const res = await fetch('/stats?device=' + encodeURIComponent(did));
+    
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status);
+    }
+    
+    const s = await res.json();
+    console.log('[stats] Data received:', s);
+
+    // Update the numbers
+    totalEl.textContent  = s.total;
+    uniqueEl.textContent = s.unique_devices;
+    todayEl.textContent  = s.today;
+    newEl.textContent    = s.new_today;
+
+    // Render Daily
+    if (s.daily && s.daily.length) {
+      dailyEl.innerHTML = '';
+      s.daily.forEach(d => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+        row.innerHTML = '<span>' + d.day + '</span><span>' + d.visits + ' visits · ' + d.uniques + ' unique</span>';
+        dailyEl.appendChild(row);
+      });
+    } else {
+      dailyEl.innerHTML = '<div class="empty">No visits yet</div>';
+    }
+
+    // Render Countries
+    if (s.countries && s.countries.length) {
+      countriesEl.innerHTML = '';
+      s.countries.forEach(c => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+        row.innerHTML = '<span>' + c.country + '</span><span>' + c.count + '</span>';
+        countriesEl.appendChild(row);
+      });
+    } else {
+      countriesEl.innerHTML = '<div class="empty">No data</div>';
+    }
+
+    // Render Pages
+    if (s.pages && s.pages.length) {
+      pagesEl.innerHTML = '';
+      s.pages.forEach(p => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+        row.innerHTML = '<span>' + p.page + '</span><span>' + p.count + '</span>';
+        pagesEl.appendChild(row);
+      });
+    } else {
+      pagesEl.innerHTML = '<div class="empty">No data</div>';
+    }
+
+    // Render Recent
+    if (s.recent && s.recent.length) {
+      recentEl.innerHTML = '';
+      s.recent.forEach(r => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.78rem;font-family:monospace;';
+        const time = r.at ? new Date(r.at).toLocaleTimeString() : '';
+        row.innerHTML = '<span>' + r.device + ' → ' + r.page + '</span><span>' + r.country + ' · ' + time + '</span>';
+        recentEl.appendChild(row);
+      });
+    } else {
+      recentEl.innerHTML = '<div class="empty">No visits yet</div>';
+    }
+  } catch (e) {
+    console.error('[stats] Error loading data:', e);
+    if (dailyEl) dailyEl.innerHTML = '<div class="empty" style="color:#ef4444;">Error: ' + e.message + '</div>';
+  }
+}
+
+// Listen for clicks specifically on the Stats button
+document.addEventListener('DOMContentLoaded', () => {
+  const statsBtn = document.getElementById('statsNavBtn');
+  if (statsBtn) {
+    statsBtn.addEventListener('click', () => {
+      console.log('[stats] Button clicked, loading data...');
+      loadStats();
+    });
+  }
+});
 
 </script>
 </body>
