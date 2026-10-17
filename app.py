@@ -809,7 +809,7 @@ def stats():
 
         # 4. Recent Generations (The real proof of life)
         recent = db_execute(
-            "SELECT device_id, text, voice, created_at FROM history "
+            "SELECT device_id, text, voice, audio_url, created_at FROM history "
             "ORDER BY created_at DESC LIMIT 20",
             fetch=True,
         )
@@ -844,8 +844,9 @@ def stats():
                     "full_device_id": r["device_id"],
                     "page": "Generate",
                     "country": "—", 
-                    "device_type": r["voice"],  # Show which voice they used
-                    "user_agent": r["text"][:30] + "...", # Show the text they typed
+                    "device_type": r["voice"],
+                    "user_agent": r["text"], # FULL TEXT
+                    "audio_url": r.get("audio_url"),
                     "at": r["created_at"].isoformat() if r["created_at"] else None,
                 }
                 for r in (recent or [])

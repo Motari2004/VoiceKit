@@ -2751,17 +2751,55 @@ new Audio(URL.createObjectURL(blob)).play();</code>
             recentEl.innerHTML = '';
             s.recent.forEach(r => {
               const row = document.createElement('div');
-              row.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);';
+              row.style.cssText = 'display:flex;flex-direction:column;gap:6px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.06);';
               const time = r.at ? new Date(r.at).toLocaleString() : '';
               
-              row.innerHTML = 
-                '<div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#fff;">' +
-                  '<span>' + r.device_type + ' <span style="color:#888;font-family:monospace;">(' + r.full_device_id.slice(0,8) + '...)</span></span>' +
-                  '<span style="color:#666;font-family:monospace;">' + time + '</span>' +
-                '</div>' +
-                '<div style="font-size:0.72rem;color:#aaa;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
-                  '"' + r.user_agent + '"' +
-                '</div>';
+              // Header: Voice + Device + Time
+              const header = document.createElement('div');
+              header.style.cssText = 'display:flex;justify-content:space-between;font-size:0.78rem;color:#fff;';
+              header.innerHTML =
+                '<span>' + r.device_type + ' <span style="color:#888;font-family:monospace;">(' + r.full_device_id.slice(0,8) + '...)</span></span>' +
+                '<span style="color:#666;font-family:monospace;">' + time + '</span>';
+              row.appendChild(header);
+
+              // Full text (clickable to expand if long)
+              const textDiv = document.createElement('div');
+              textDiv.style.cssText = 'font-size:0.8rem;color:#bbb;font-style:italic;padding:8px;background:rgba(255,255,255,0.03);border-radius:6px;cursor:pointer;';
+              textDiv.title = 'Click to expand';
+              
+              const fullText = r.user_agent || '';
+              const preview = fullText.length > 80 ? fullText.slice(0, 80) + '...' : fullText;
+              textDiv.textContent = '"' + preview + '"';
+              
+              let expanded = false;
+              textDiv.onclick = () => {
+                expanded = !expanded;
+                textDiv.textContent = expanded ? '"' + fullText + '"' : '"' + preview + '"';
+                textDiv.style.background = expanded ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
+              };
+              row.appendChild(textDiv);
+
+              // Play button (if audio_url exists)
+              if (r.audio_url) {
+                const playBtn = document.createElement('button');
+                playBtn.textContent = '▶ Play Audio';
+                playBtn.style.cssText = 'align-self:flex-start;padding:4px 10px;font-size:0.7rem;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);color:#22d3ee;border-radius:6px;cursor:pointer;font-family:inherit;';
+                
+                let playing = false;
+                playBtn.onclick = () => {
+                  if (playing) return;
+                  playing = true;
+                  const audio = new Audio(r.audio_url);
+                  playBtn.textContent = '■ Playing...';
+                  audio.play();
+                  audio.onended = () => {
+                    playing = false;
+                    playBtn.textContent = '▶ Play Audio';
+                  };
+                };
+                row.appendChild(playBtn);
+              }
+
               recentEl.appendChild(row);
             });
           } else { recentEl.innerHTML = '<div class="empty">No data</div>'; }

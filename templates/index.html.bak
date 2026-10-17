@@ -2686,6 +2686,13 @@ new Audio(URL.createObjectURL(blob)).play();</code>
 
     <div class="card">
       <div class="card-header">
+        <span class="card-title">Devices</span>
+      </div>
+      <div id="statsDevices"><div class="empty">Loading...</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
         <span class="card-title">Recent Generations</span>
       </div>
       <div id="statsRecent"><div class="empty">Loading...</div></div>
@@ -2758,6 +2765,33 @@ new Audio(URL.createObjectURL(blob)).play();</code>
               recentEl.appendChild(row);
             });
           } else { recentEl.innerHTML = '<div class="empty">No data</div>'; }
+
+          
+          // Devices List
+          const devicesEl = document.getElementById('statsDevices');
+          if (s.devices && s.devices.length) {
+            devicesEl.innerHTML = '';
+            s.devices.forEach(d => {
+              const row = document.createElement('div');
+              row.style.cssText = 'padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.8rem;';
+              
+              const last = d.last_seen ? new Date(d.last_seen).toLocaleString() : '';
+              const first = d.first_seen ? new Date(d.first_seen).toLocaleDateString() : '';
+              
+              row.innerHTML = 
+                '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">' +
+                  '<span style="font-family:monospace;color:#fff;font-weight:600;">' + d.id + '</span>' +
+                  '<span style="color:#4ade80;font-weight:600;">' + d.count + ' gens</span>' +
+                '</div>' +
+                '<div style="color:#888;font-size:0.7rem;display:flex;justify-content:space-between;">' +
+                  '<span>First: ' + first + '</span>' +
+                  '<span>Last: ' + last + '</span>' +
+                '</div>';
+              devicesEl.appendChild(row);
+            });
+          } else if (devicesEl) {
+            devicesEl.innerHTML = '<div class="empty">No devices yet</div>';
+          }
 
           console.log('[stats] Data rendered successfully');
 
