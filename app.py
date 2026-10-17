@@ -510,7 +510,13 @@ def upload_to_cloudinary(wav_bytes, voice, device_id=""):
 # ============================================================
 @app.route("/")
 def index():
-    return render_template("index.html")
+    # Get device ID from cookie
+    device_id = request.cookies.get("voicekit_device", "")
+
+    # Check admin status
+    is_admin = device_id in ADMIN_DEVICES if ADMIN_DEVICES else False
+
+    return render_template("index.html", is_admin=is_admin)
 
 
 @app.route("/health")

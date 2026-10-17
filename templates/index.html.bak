@@ -2300,6 +2300,14 @@
       </svg>
       About
     </button>
+    <button class="nav-btn" data-view="stats" id="statsNavBtn" style="display: none;">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="20" x2="12" y2="10"></line>
+        <line x1="18" y1="20" x2="18" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="16"></line>
+      </svg>
+      Stats
+    </button>
 
     <button class="nav-btn admin-only" data-view="stats" style="display: none;">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3757,8 +3765,7 @@ document.addEventListener('click', (e) => {
 });
 
 
-// ============================================================
-// FORCE ADMIN STATS BUTTON
+
 // ============================================================
 (async function forceAdminButton() {
   try {
@@ -3830,6 +3837,34 @@ document.addEventListener('click', (e) => {
     console.warn('[admin] force reveal failed:', e);
   }
 })();
+
+
+// ============================================================
+// SIMPLE ADMIN UNHIDE SCRIPT
+// ============================================================
+setTimeout(async () => {
+  try {
+    const did = localStorage.getItem('voicekit_device_id');
+    if (!did) return;
+
+    const res = await fetch('/is-admin?device=' + encodeURIComponent(did));
+    const data = await res.json();
+
+    console.log('[admin-check] status:', data);
+
+    if (data.admin) {
+      const btn = document.getElementById('statsNavBtn');
+      if (btn) {
+        btn.style.display = 'flex';
+        console.log('[admin-check] Stats button revealed');
+      } else {
+        console.error('[admin-check] Stats button NOT FOUND in DOM');
+      }
+    }
+  } catch (e) {
+    console.error('[admin-check] error:', e);
+  }
+}, 1000); // Wait 1 second to ensure everything is loaded
 
 </script>
 </body>
