@@ -762,7 +762,7 @@ def is_admin():
 
 @app.route("/stats")
 def stats():
-    """Return aggregate visit statistics. Admin only."""
+    """Return aggregate statistics based on actual generations (history)."""
     device_id = (request.args.get("device") or "").strip()
     if device_id not in ADMIN_DEVICES:
         return jsonify({"error": "forbidden"}), 403
@@ -773,73 +773,64 @@ def stats():
     try:
         init_db()
 
-        total = db_execute("SELECT COUNT(*) AS n FROM visits", fetch_one=True)
-        unique = db_execute("SELECT COUNT(DISTINCT device_id) AS n FROM visits", fetch_one=True)
-        today = db_execute(
-            "SELECT COUNT(*) AS n FROM visits WHERE created_at > NOW() - INTERVAL '1 day'",
+        # 1. Overall totals from history
+        total_gens = db_execute("SELECT COUNT(*) AS n FROM history", fetch_one=True)
+        unique_devs = db_execute("SELECT COUNT(DISTINCT device_id) AS n FROM history", fetch_one=True)
+        
+        today_gens = db_execute(
+            "SELECT COUNT(*) AS n FROM history WHERE created_at > NOW() - INTERVAL '1 day'",
             fetch_one=True,
         )
+        
         new_today = db_execute(
-            "SELECT COUNT(*) AS n FROM visits "
+            "SELECT COUNT(*) AS n FROM history "
             "WHERE created_at > NOW() - INTERVAL '1 day' "
             "AND device_id NOT IN ("
-            "  SELECT device_id FROM visits WHERE created_at < NOW() - INTERVAL '1 day'"
+            "  SELECT device_id FROM history WHERE created_at < NOW() - INTERVAL '1 day'"
             ")",
             fetch_one=True,
         )
-        countries = db_execute(
-            "SELECT country, COUNT(*) AS n FROM visits "
-            "WHERE country IS NOT NULL AND country != 'unknown' "
-            "GROUP BY country ORDER BY n DESC LIMIT 10",
+
+        # 2. Top Voices used
+        voices = db_execute(
+            "SELECT voice, COUNT(*) AS n FROM history "
+            "GROUP BY voice ORDER BY n DESC LIMIT 10",
             fetch=True,
         )
-        pages = db_execute(
-            "SELECT page, COUNT(*) AS n FROM visits "
-            "GROUP BY page ORDER BY n DESC LIMIT 10",
-            fetch=True,
-        )
+
+        # 3. Daily activity
         daily = db_execute(
-            "SELECT DATE(created_at) AS day, COUNT(*) AS visits, "
+            "SELECT DATE(created_at) AS day, COUNT(*) AS gens, "
             "COUNT(DISTINCT device_id) AS uniques "
-            "FROM visits WHERE created_at > NOW() - INTERVAL '14 days' "
+            "FROM history WHERE created_at > NOW() - INTERVAL '14 days' "
             "GROUP BY DATE(created_at) ORDER BY day DESC",
             fetch=True,
         )
+
+        # 4. Recent Generations (The real proof of life)
         recent = db_execute(
-            "SELECT device_id, page, country, user_agent, created_at FROM visits "
+            "SELECT device_id, text, voice, created_at FROM history "
             "ORDER BY created_at DESC LIMIT 20",
             fetch=True,
         )
 
-        def detect_device(ua):
-            if not ua: return "unknown"
-            ua = ua.lower()
-            if "iphone" in ua: return "iPhone"
-            if "ipad" in ua: return "iPad"
-            if "android" in ua: return "Android"
-            if "mac os" in ua or "macintosh" in ua: return "Mac"
-            if "windows" in ua: return "Windows"
-            if "linux" in ua: return "Linux"
-            return "Other"
-
         return jsonify({
-            "total": total["n"] if total else 0,
-            "unique_devices": unique["n"] if unique else 0,
-            "today": today["n"] if today else 0,
+            "total": total_gens["n"] if total_gens else 0,
+            "unique_devices": unique_devs["n"] if unique_devs else 0,
+            "today": today_gens["n"] if today_gens else 0,
             "new_today": new_today["n"] if new_today else 0,
-            "countries": [{"country": r["country"], "count": r["n"]} for r in (countries or [])],
-            "pages": [{"page": r["page"], "count": r["n"]} for r in (pages or [])],
+            "pages": [{"page": r["voice"], "count": r["n"]} for r in (voices or [])], # Now shows top voices
             "daily": [
-                {"day": str(r["day"]), "visits": r["visits"], "uniques": r["uniques"]}
+                {"day": str(r["day"]), "visits": r["gens"], "uniques": r["uniques"]}
                 for r in (daily or [])
             ],
             "recent": [
                 {
-                    "full_device_id": r["device_id"],       # UNTRUNCATED
-                    "page": r["page"],
-                    "country": r["country"],
-                    "device_type": detect_device(r["user_agent"]),  # Parsed
-                    "user_agent": r["user_agent"],           # Raw string
+                    "full_device_id": r["device_id"],
+                    "page": "Generate",
+                    "country": "—", 
+                    "device_type": r["voice"],  # Show which voice they used
+                    "user_agent": r["text"][:30] + "...", # Show the text they typed
                     "at": r["created_at"].isoformat() if r["created_at"] else None,
                 }
                 for r in (recent or [])
