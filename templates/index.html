@@ -2564,13 +2564,9 @@
 
       <div class="api-block">
         <div class="api-label"><strong>curl</strong></div>
-        <code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
-    "voice": "af_alloy",
-    "speed": 1.0
-  }' \
+        <code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak ^
+  -H "Content-Type: application/json" ^
+  -d "{\"text\": \"Welcome to the show. Today we are exploring the future of AI voice synthesis.\", \"voice\": \"af_alloy\", \"speed\": 1.0}" ^
   -o intro.wav</code>
       </div>
 

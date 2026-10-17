@@ -1,6 +1,6 @@
 """
-Clear the default text in the Generate box.
-Remove 'Listen closely' from voice previews so it doesn't leak into new generations.
+Change the curl example to a Windows CMD compatible version.
+Uses ^ for line continuation and escaped double quotes.
 """
 
 import os
@@ -17,9 +17,15 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
+NEW_CURL = '''<code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak ^
+  -H "Content-Type: application/json" ^
+  -d "{\\"text\\": \\"Welcome to the show. Today we are exploring the future of AI voice synthesis.\\", \\"voice\\": \\"af_alloy\\", \\"speed\\": 1.0}" ^
+  -o intro.wav</code>'''
+
+
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Clear Default Text")
+    print(" VoiceKit — Windows CMD Curl Example")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -31,37 +37,17 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    original = src
-
-    # 1. Clear the textarea default text
-    # Match the <textarea ...> ... </textarea> block
-    textarea_pattern = re.compile(
-        r'<textarea id="text"([^>]*)>.*?</textarea>',
+    # Find and replace the old curl block
+    pattern = re.compile(
+        r'<code class="api-code">curl -X POST https://voicekit-prod\.vercel\.app/speak.*?-o intro\.wav</code>',
         re.DOTALL
     )
-    
-    if textarea_pattern.search(src):
-        src = textarea_pattern.sub(
-            r'<textarea id="text"\1></textarea>',
-            src,
-            count=1
-        )
-        print("  [OK] Cleared default textarea text")
+
+    if pattern.search(src):
+        src = pattern.sub(NEW_CURL, src, count=1)
+        print("  [OK] Replaced curl example with Windows CMD compatible version")
     else:
-        print("  WARN: Could not find textarea")
-
-    # 2. Replace 'Listen closely' in the voice preview function
-    # We'll change it to something neutral but still short so preview works
-    old_preview_text = 'text: "Listen closely. You can barely tell this is not me talking.",'
-    new_preview_text = 'text: "This is a preview of the voice.",'
-    
-    if old_preview_text in src:
-        src = src.replace(old_preview_text, new_preview_text, 1)
-        print("  [OK] Updated voice preview text")
-
-    if src == original:
-        print("  No changes made.")
-        return
+        print("  WARN: Could not find the curl example")
 
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
@@ -74,7 +60,11 @@ def patch():
     print("   vercel --prod")
     print("   Hard-refresh: Ctrl + Shift + R")
     print()
-    print(" The text box will now be empty when the page loads.")
+    print(" The new example uses:")
+    print("   ^ (caret) for line continuation in CMD")
+    print("   \\\" (escaped quotes) for the JSON payload")
+    print()
+    print(" You can copy-paste it directly into Windows CMD.")
     print("=" * 60)
 
 
