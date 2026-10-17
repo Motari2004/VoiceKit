@@ -2525,7 +2525,7 @@
   -d '{
     "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
     "voice": "af_alloy",
-    "speed": 1.0.0
+    "speed": 1.0
   }' \
   -o intro.wav</code>
       </div>
@@ -2539,7 +2539,7 @@ response = requests.post(
     json={
         "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
         "voice": "af_alloy",
-        "speed": 1.0.0,
+        "speed": 1.0,
     },
 )
 
