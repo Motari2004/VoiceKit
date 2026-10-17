@@ -1,9 +1,8 @@
 """
-VoiceKit — Server-Side Admin Rendering
-1. Flask reads the device cookie and evaluates admin status.
-2. Jinja injects the Stats button ONLY for admins.
-3. Removes all old JS hacks.
-4. Adds a tiny cookie-setter at the top of the script.
+Fix: The Stats button appears, but the data doesn't load.
+- Adds a dedicated click listener specifically for the Stats button.
+- Includes the loadStats function directly in the patch to ensure it exists.
+- Adds a refresh button inside the Stats view.
 """
 
 import os
@@ -11,7 +10,6 @@ import re
 import shutil
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-APP  = os.path.join(BASE, "app.py")
 HTML = os.path.join(BASE, "templates", "index.html")
 
 
@@ -21,188 +19,195 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-# ============================================================
-# 1. NEW FLASK ROUTE
-# ============================================================
-NEW_INDEX_ROUTE = '''@app.route("/")
-def index():
-    # Get device ID from cookie
-    device_id = request.cookies.get("voicekit_device", "")
-
-    # Check admin status
-    is_admin = device_id in ADMIN_DEVICES if ADMIN_DEVICES else False
-
-    return render_template("index.html", is_admin=is_admin)
-'''
-
-# ============================================================
-# 2. NEW HTML SNIPPETS
-# ============================================================
-# The Stats button, wrapped in Jinja
-JINJA_STATS_BTN = '''    {% if is_admin %}
-    <button class="nav-btn" data-view="stats" id="statsNavBtn">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="20" x2="12" y2="10"></line>
-        <line x1="18" y1="20" x2="18" y2="4"></line>
-        <line x1="6" y1="20" x2="6" y2="16"></line>
-      </svg>
-      Stats
-    </button>
-    {% endif %}'''
-
-# The cookie setter — placed at the top of the main script
-COOKIE_SETTER = '''// ============================================================
-// ENSURE DEVICE COOKIE IS SET (for server-side admin check)
+NEW_STATS_JS = '''
 // ============================================================
-(function ensureDeviceCookie() {
-  let did = localStorage.getItem('voicekit_device_id');
-  if (!did) {
-    did = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem('voicekit_device_id', did);
+// STATS DATA LOADER
+// ============================================================
+async function loadStats() {
+  console.log('[stats] Fetching data...');
+  
+  const totalEl     = document.getElementById('statTotal');
+  const uniqueEl    = document.getElementById('statUnique');
+  const todayEl     = document.getElementById('statToday');
+  const newEl       = document.getElementById('statNew');
+  const dailyEl     = document.getElementById('statsDaily');
+  const countriesEl = document.getElementById('statsCountries');
+  const pagesEl     = document.getElementById('statsPages');
+  const recentEl    = document.getElementById('statsRecent');
+
+  if (!totalEl) {
+    console.error('[stats] Stats view elements not found in DOM');
+    return;
   }
-  // Set cookie with 1-year expiry
-  document.cookie = "voicekit_device=" + did + "; max-age=31536000; path=/; SameSite=Lax";
-})();
+
+  try {
+    const did = localStorage.getItem('voicekit_device_id') || '';
+    const res = await fetch('/stats?device=' + encodeURIComponent(did));
+    
+    if (!res.ok) {
+      throw new Error('HTTP ' + res.status);
+    }
+    
+    const s = await res.json();
+    console.log('[stats] Data received:', s);
+
+    // Update the numbers
+    totalEl.textContent  = s.total;
+    uniqueEl.textContent = s.unique_devices;
+    todayEl.textContent  = s.today;
+    newEl.textContent    = s.new_today;
+
+    // Render Daily
+    if (s.daily && s.daily.length) {
+      dailyEl.innerHTML = '';
+      s.daily.forEach(d => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+        row.innerHTML = '<span>' + d.day + '</span><span>' + d.visits + ' visits · ' + d.uniques + ' unique</span>';
+        dailyEl.appendChild(row);
+      });
+    } else {
+      dailyEl.innerHTML = '<div class="empty">No visits yet</div>';
+    }
+
+    // Render Countries
+    if (s.countries && s.countries.length) {
+      countriesEl.innerHTML = '';
+      s.countries.forEach(c => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+        row.innerHTML = '<span>' + c.country + '</span><span>' + c.count + '</span>';
+        countriesEl.appendChild(row);
+      });
+    } else {
+      countriesEl.innerHTML = '<div class="empty">No data</div>';
+    }
+
+    // Render Pages
+    if (s.pages && s.pages.length) {
+      pagesEl.innerHTML = '';
+      s.pages.forEach(p => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.82rem;';
+        row.innerHTML = '<span>' + p.page + '</span><span>' + p.count + '</span>';
+        pagesEl.appendChild(row);
+      });
+    } else {
+      pagesEl.innerHTML = '<div class="empty">No data</div>';
+    }
+
+    // Render Recent
+    if (s.recent && s.recent.length) {
+      recentEl.innerHTML = '';
+      s.recent.forEach(r => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);font-size:0.78rem;font-family:monospace;';
+        const time = r.at ? new Date(r.at).toLocaleTimeString() : '';
+        row.innerHTML = '<span>' + r.device + ' → ' + r.page + '</span><span>' + r.country + ' · ' + time + '</span>';
+        recentEl.appendChild(row);
+      });
+    } else {
+      recentEl.innerHTML = '<div class="empty">No visits yet</div>';
+    }
+  } catch (e) {
+    console.error('[stats] Error loading data:', e);
+    if (dailyEl) dailyEl.innerHTML = '<div class="empty" style="color:#ef4444;">Error: ' + e.message + '</div>';
+  }
+}
+
+// Listen for clicks specifically on the Stats button
+document.addEventListener('DOMContentLoaded', () => {
+  const statsBtn = document.getElementById('statsNavBtn');
+  if (statsBtn) {
+    statsBtn.addEventListener('click', () => {
+      console.log('[stats] Button clicked, loading data...');
+      loadStats();
+    });
+  }
+});
 '''
 
+def patch():
+    print("=" * 60)
+    print(" VoiceKit — Fix Stats Data Loading")
+    print("=" * 60)
 
-def patch_app():
-    print("\n[1/2] Patching app.py")
-    if not os.path.exists(APP):
-        print(f"  ERROR: {APP} not found")
-        return False
-    backup(APP)
-
-    with open(APP, "r", encoding="utf-8") as f:
-        src = f.read()
-
-    original = src
-
-    # Replace the index route
-    index_pattern = re.compile(
-        r'@app\.route\("/"\)\s*\ndef index\(\):.*?(?=\n@app\.route|\n# =+)',
-        re.DOTALL
-    )
-
-    if index_pattern.search(src):
-        src = index_pattern.sub(NEW_INDEX_ROUTE + "\n", src, count=1)
-        print("  [OK] index route updated to pass is_admin")
-    else:
-        print("  WARN: Could not find the index route to replace.")
-
-    # Make sure ADMIN_DEVICES is defined BEFORE the route
-    if 'ADMIN_DEVICES = set(' not in src:
-        anchor = "# ============================================================\n# ROUTES"
-        if anchor in src:
-            src = src.replace(
-                anchor,
-                'ADMIN_DEVICES = set(\n    d.strip() for d in os.environ.get("ADMIN_DEVICES", "").split(",") if d.strip()\n)\n\n' + anchor,
-                1
-            )
-            print("  [OK] ADMIN_DEVICES moved above routes")
-        else:
-            print("  WARN: Could not place ADMIN_DEVICES before routes.")
-
-    if src != original:
-        with open(APP, "w", encoding="utf-8") as f:
-            f.write(src)
-    return True
-
-
-def patch_html():
-    print("\n[2/2] Patching templates/index.html")
     if not os.path.exists(HTML):
-        print(f"  ERROR: {HTML} not found")
-        return False
+        print(f"ERROR: {HTML} not found")
+        return
+
     backup(HTML)
 
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    original = src
+    # 1. Add a Refresh button to the Stats header if it doesn't exist
+    if 'id="refreshStats"' not in src:
+        header_pattern = r'(<div class="view-header">\s*<h1 class="view-title">Stats</h1>)'
+        if re.search(header_pattern, src):
+            # Just add the refresh button below the title
+            refresh_btn = '''
+      <button id="refreshStats" style="margin-top: 10px; padding: 6px 12px; background: transparent; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #b0b0b8; font-family: inherit; font-size: 0.75rem; cursor: pointer;">↻ Refresh Data</button>'''
+            src = re.sub(
+                r'(<p class="view-subtitle">Live visitor and usage analytics. Admin only.</p>)',
+                r'\1' + refresh_btn,
+                src
+            )
+            print("  [OK] Added Refresh button to Stats header")
 
-    # 1. Remove old Stats button (if any)
-    old_btn_pattern = re.compile(
-        r'<button class="nav-btn[^"]*" data-view="stats".*?</button>',
-        re.DOTALL
+    # 2. Ensure the Refresh button actually calls loadStats
+    if 'refreshStats' in src and 'refreshStats.addEventListener' not in src:
+        refresh_js = '''
+// Wire up the refresh button
+document.addEventListener('DOMContentLoaded', () => {
+  const refreshBtn = document.getElementById('refreshStats');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      console.log('[stats] Refresh clicked');
+      loadStats();
+    });
+  }
+});
+'''
+        # Insert right before </script>
+        idx = src.rfind('</script>')
+        if idx != -1:
+            src = src[:idx] + refresh_js + '\n' + src[idx:]
+            print("  [OK] Wired up Refresh button")
+
+    # 3. Append the new Stats JS (overwriting any old loadStats functions)
+    # First, remove old loadStats definitions to avoid conflicts
+    src = re.sub(
+        r'async function loadStats\(\).*?(?=\nasync function|\n// =+|\n</script>)',
+        '',
+        src,
+        flags=re.DOTALL
     )
-    if old_btn_pattern.search(src):
-        src = old_btn_pattern.sub('', src)
-        print("  [OK] Removed old Stats button")
 
-    # 2. Insert the Jinja Stats button after the About button
-    about_pattern = re.compile(
-        r'(<button class="nav-btn" data-view="about">.*?</button>)',
-        re.DOTALL
-    )
-    match = about_pattern.search(src)
-    if match:
-        src = src[:match.end()] + '\n' + JINJA_STATS_BTN + '\n' + src[match.end():]
-        print("  [OK] Inserted Jinja-wrapped Stats button")
-    else:
-        print("  WARN: Could not find the About button to insert after.")
-
-    # 3. Remove the old admin JS scripts (multiple patterns)
-    patterns_to_remove = [
-        r'// =+\s*\n// ADMIN MODE DETECTION \(ROBUST\).*?(?=\n// =+|\n</script>)',
-        r'// =+\s*\n// FORCE ADMIN STATS BUTTON.*?(?=\n// =+|\n</script>)',
-        r'// =+\s*\n// SIMPLE ADMIN UNHIDE SCRIPT.*?(?=\n// =+|\n</script>)',
-        r'// -+\s*\n// Admin detection\s*\n// -+.*?(?=\n// =+|\n</script>)',
-    ]
-    for pat in patterns_to_remove:
-        if re.search(pat, src, re.DOTALL):
-            src = re.sub(pat, '', src, flags=re.DOTALL)
-            print("  [OK] Removed old admin JS block")
-
-    # 4. Insert the cookie setter at the top of the script
-    # Find the first <script> tag and add the cookie setter right after it
-    script_open = src.find('<script>')
-    if script_open != -1 and 'ensureDeviceCookie' not in src:
-        insert_at = src.find('\n', script_open) + 1
-        src = src[:insert_at] + COOKIE_SETTER + '\n' + src[insert_at:]
-        print("  [OK] Added cookie setter")
-
-    # 5. Ensure loadStats is still wired up (it is from the previous patch)
-    if 'statsNavBtn' in src and 'loadStats' not in src:
-        print("  WARN: loadStats function may be missing.")
-
-    if src == original:
-        print("  No changes made to HTML.")
-        return True
+    idx = src.rfind('</script>')
+    if idx != -1:
+        src = src[:idx] + NEW_STATS_JS + '\n' + src[idx:]
+        print("  [OK] Injected new loadStats function")
 
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
-    return True
-
-
-if __name__ == "__main__":
-    print("=" * 60)
-    print(" VoiceKit — Server-Side Admin Rendering")
-    print("=" * 60)
-
-    ok1 = patch_app()
-    ok2 = patch_html()
 
     print()
     print("=" * 60)
-    print(" DONE" if (ok1 and ok2) else " DONE WITH ERRORS")
+    print(" DONE")
     print("=" * 60)
-    print()
-    print(" How it works now:")
-    print("   1. Browser loads the page → sets a 'voicekit_device' cookie")
-    print("   2. Flask reads the cookie → checks ADMIN_DEVICES")
-    print("   3. If admin, Jinja injects the Stats button into the HTML")
-    print("   4. No JS hiding/unhiding needed")
     print()
     print(" Deploy:")
     print("   vercel --prod")
+    print("   Hard-refresh: Ctrl + Shift + R")
     print()
-    print(" IMPORTANT: After deploying, you must visit the site TWICE.")
-    print("   1st visit: sets the cookie")
-    print("   2nd visit: Flask sees the cookie → Stats button appears")
-    print()
-    print(" If the button doesn't appear on the 2nd visit:")
-    print("   • Hard-refresh: Ctrl + Shift + R")
-    print("   • Check that ADMIN_DEVICES is set in Vercel")
-    print("   • Check that the env var matches your device ID exactly")
+    print(" Then:")
+    print("   1. Click the Stats button.")
+    print("   2. Open the browser console (F12).")
+    print("   3. Look for '[stats] Data received:' — this shows the exact JSON.")
+    print("   4. If there's an error, it will appear in red.")
     print("=" * 60)
+
+
+if __name__ == "__main__":
+    patch()

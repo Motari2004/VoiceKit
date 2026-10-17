@@ -2300,7 +2300,8 @@
       </svg>
       About
     </button>
-    <button class="nav-btn" data-view="stats" id="statsNavBtn" style="display: none;">
+    {% if is_admin %}
+    <button class="nav-btn" data-view="stats" id="statsNavBtn">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="12" y1="20" x2="12" y2="10"></line>
         <line x1="18" y1="20" x2="18" y2="4"></line>
@@ -2308,15 +2309,11 @@
       </svg>
       Stats
     </button>
+    {% endif %}
 
-    <button class="nav-btn admin-only" data-view="stats" style="display: none;">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="20" x2="12" y2="10"></line>
-        <line x1="18" y1="20" x2="18" y2="4"></line>
-        <line x1="6" y1="20" x2="6" y2="16"></line>
-      </svg>
-      Stats
-    </button>
+    
+
+    
 
   </div>
 
@@ -2714,6 +2711,19 @@ new Audio(URL.createObjectURL(blob)).play();</code>
 </main>
 
 <script>
+// ============================================================
+// ENSURE DEVICE COOKIE IS SET (for server-side admin check)
+// ============================================================
+(function ensureDeviceCookie() {
+  let did = localStorage.getItem('voicekit_device_id');
+  if (!did) {
+    did = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem('voicekit_device_id', did);
+  }
+  // Set cookie with 1-year expiry
+  document.cookie = "voicekit_device=" + did + "; max-age=31536000; path=/; SameSite=Lax";
+})();
+
 // ============================================================
 // CONFIG
 // ============================================================
@@ -3839,8 +3849,7 @@ document.addEventListener('click', (e) => {
 })();
 
 
-// ============================================================
-// SIMPLE ADMIN UNHIDE SCRIPT
+
 // ============================================================
 setTimeout(async () => {
   try {
