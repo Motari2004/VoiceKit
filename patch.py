@@ -1,7 +1,5 @@
 """
-Force the Stats button to appear for admin devices.
-Removes the 'admin-only' class entirely and injects the button
-into the DOM if it's missing.
+Bypass fix: add the Stats button with an ID and unhide it via a separate script.
 """
 
 import os
@@ -18,86 +16,9 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-NEW_JS = '''
-// ============================================================
-// FORCE ADMIN STATS BUTTON
-// ============================================================
-(async function forceAdminButton() {
-  try {
-    // 1. Get device ID
-    const did = localStorage.getItem('voicekit_device_id') || '';
-    if (!did) return;
-
-    // 2. Check with the server
-    const res = await fetch('/is-admin?device=' + encodeURIComponent(did));
-    const data = await res.json();
-
-    if (!data.admin) return;  // Not an admin, do nothing
-
-    console.log('[admin] confirmed — revealing Stats button');
-
-    // 3. Find the button in the DOM
-    let statsBtn = document.querySelector('.nav-btn[data-view="stats"]');
-
-    // 4. If the button doesn't exist at all, create and insert it
-    if (!statsBtn) {
-      console.log('[admin] creating Stats button from scratch');
-
-      const navSections = document.querySelectorAll('.nav-section');
-      const devSection = navSections[navSections.length - 1]; // Developers section
-
-      if (devSection) {
-        statsBtn = document.createElement('button');
-        statsBtn.className = 'nav-btn';
-        statsBtn.dataset.view = 'stats';
-        statsBtn.innerHTML = `
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="20" x2="12" y2="10"></line>
-            <line x1="18" y1="20" x2="18" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="16"></line>
-          </svg>
-          Stats
-        `;
-        devSection.appendChild(statsBtn);
-
-        // Wire up the click event to show the stats view
-        statsBtn.addEventListener('click', () => {
-          document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-          statsBtn.classList.add('active');
-          document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-          const target = document.getElementById('view-stats');
-          if (target) target.classList.add('active');
-          
-          // Trigger stats load if the function exists
-          if (typeof loadStats === 'function') loadStats();
-          
-          // Close mobile sidebar
-          const sidebar = document.getElementById('sidebar');
-          const overlay = document.getElementById('overlay');
-          if (sidebar) sidebar.classList.remove('open');
-          if (overlay) overlay.classList.remove('show');
-        });
-      }
-    }
-
-    // 5. Force it to be visible regardless of CSS
-    if (statsBtn) {
-      statsBtn.style.display = 'flex';
-      statsBtn.style.visibility = 'visible';
-      statsBtn.classList.remove('admin-only');
-      statsBtn.classList.add('admin-visible');
-    }
-
-  } catch (e) {
-    console.warn('[admin] force reveal failed:', e);
-  }
-})();
-'''
-
-
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Force Admin Stats Button")
+    print(" VoiceKit — Admin Button ID Fix")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -109,36 +30,90 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    # Remove any previous admin check scripts to avoid conflicts
+    original = src
+
+    # 1. Ensure the Stats button exists in the HTML and has an ID
+    if 'id="statsNavBtn"' not in src:
+        # Look for the About button to insert after
+        about_btn_pattern = r'(<button class="nav-btn" data-view="about">.*?</button>)'
+        match = re.search(about_btn_pattern, src, re.DOTALL)
+        
+        if match:
+            # Insert the Stats button right after About
+            stats_btn = '''
+    <button class="nav-btn" data-view="stats" id="statsNavBtn" style="display: none;">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="20" x2="12" y2="10"></line>
+        <line x1="18" y1="20" x2="18" y2="4"></line>
+        <line x1="6" y1="20" x2="6" y2="16"></line>
+      </svg>
+      Stats
+    </button>'''
+            src = src[:match.end()] + stats_btn + src[match.end():]
+            print("  [OK] Injected Stats button with ID")
+        else:
+            print("  WARN: Could not find the About button to insert after.")
+
+    # 2. Remove any old admin scripts to prevent conflicts
     src = re.sub(
-        r'// =+\s*\n// ADMIN MODE DETECTION.*?(?=\n// =+|\n</script>)',
-        '',
-        src,
-        flags=re.DOTALL
-    )
-    src = re.sub(
-        r'// =+\s*\n// FORCE ADMIN STATS BUTTON.*?(?=\n// =+|\n</script>)',
+        r'// =+\s*\n// (ADMIN MODE DETECTION|FORCE ADMIN STATS BUTTON).*?(?=\n// =+|\n</script>)',
         '',
         src,
         flags=re.DOTALL
     )
 
-    # Append the new script
+    # 3. Add a clean, isolated script at the very end
+    clean_script = '''
+// ============================================================
+// SIMPLE ADMIN UNHIDE SCRIPT
+// ============================================================
+setTimeout(async () => {
+  try {
+    const did = localStorage.getItem('voicekit_device_id');
+    if (!did) return;
+
+    const res = await fetch('/is-admin?device=' + encodeURIComponent(did));
+    const data = await res.json();
+
+    console.log('[admin-check] status:', data);
+
+    if (data.admin) {
+      const btn = document.getElementById('statsNavBtn');
+      if (btn) {
+        btn.style.display = 'flex';
+        console.log('[admin-check] Stats button revealed');
+      } else {
+        console.error('[admin-check] Stats button NOT FOUND in DOM');
+      }
+    }
+  } catch (e) {
+    console.error('[admin-check] error:', e);
+  }
+}, 1000); // Wait 1 second to ensure everything is loaded
+'''
+
     idx = src.rfind('</script>')
-    if idx == -1:
-        print("  ERROR: no closing </script> found")
-        return
+    if idx != -1:
+        src = src[:idx] + clean_script + '\n' + src[idx:]
+        print("  [OK] Added clean admin unhide script")
 
-    src = src[:idx] + NEW_JS + '\n' + src[idx:]
+    if src == original:
+        print("  No changes made.")
+        return
 
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Force-reveal script added")
+    print()
+    print("=" * 60)
+    print(" DONE")
+    print("=" * 60)
     print()
     print(" Deploy:")
     print("   vercel --prod")
     print("   Hard-refresh: Ctrl + Shift + R")
+    print()
+    print(" Then check the browser console for '[admin-check] status:'")
     print("=" * 60)
 
 
