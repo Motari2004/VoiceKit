@@ -2237,6 +2237,49 @@
     }
   }
 
+
+  /* ---------- COMPACT FILTER CHIPS ---------- */
+  
+  /* Prevent horizontal scroll and wrap into tight rows */
+  .filter-row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    gap: 4px !important;
+    margin-bottom: 10px !important;
+    padding-bottom: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Make the chips smaller */
+  .filter-chip {
+    padding: 4px 8px !important;
+    font-size: 0.65rem !important;
+    border-radius: 4px !important;
+    line-height: 1.2 !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Keep the favorites star visible but tight */
+  .filter-chip.fav-filter {
+    padding: 4px 8px !important;
+  }
+
+  .filter-chip.fav-filter .star-icon {
+    margin-right: 2px !important;
+  }
+
+  /* Mobile: keep them very tight */
+  @media (max-width: 900px) {
+    .filter-chip {
+      padding: 4px 6px !important;
+      font-size: 0.6rem !important;
+    }
+  }
+
 </style>
   <link rel="apple-touch-icon" href="/static/mic.png">
 </head>
