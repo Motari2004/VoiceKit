@@ -1,6 +1,8 @@
 """
-Make the sidebar fit the viewport on mobile without scrolling.
-Tighter spacing so all nav items are visible at once.
+Fill the leftover sidebar space on mobile.
+- Removes the forced 'hidden' scroll but keeps it fitting
+- Makes buttons taller to use the space
+- Spreads sections out so it looks intentional, not clustered
 """
 
 import os
@@ -17,93 +19,97 @@ def backup(path):
 
 
 NEW_CSS = '''
-  /* ---------- SIDEBAR: FIT IN VIEWPORT (MOBILE) ---------- */
+  /* ---------- SIDEBAR: FILL THE MOBILE SPACE ---------- */
   @media (max-width: 900px) {
     .sidebar {
-      padding-top: 76px !important;
-      padding-bottom: 16px !important;
-      overflow-y: hidden !important;   /* no scroll inside the sidebar */
+      padding-top: 90px !important;
+      padding-bottom: 24px !important;
       height: 100vh !important;
-      height: 100dvh !important;       /* dynamic viewport height for mobile browsers */
+      height: 100dvh !important;
       display: flex !important;
       flex-direction: column !important;
+      overflow-y: auto !important;  /* scroll only if truly needed */
     }
 
-    /* Brand — tighter */
-    .sidebar-brand {
-      padding: 4px 10px 12px !important;
+    /* Space out the whole nav */
+    .sidebar .nav-section:first-of-type {
+      margin-top: 12px !important;
+    }
+
+    .nav-section {
+      margin-bottom: 24px !important;  /* more breathing room */
+    }
+
+    .nav-label {
+      font-size: 0.68rem !important;
+      margin-bottom: 10px !important;
+      padding: 0 10px !important;
+      color: var(--text-muted) !important;
+    }
+
+    /* Bigger, more comfortable buttons */
+    .nav-btn {
+      padding: 12px 12px !important;
+      font-size: 0.92rem !important;
+      gap: 12px !important;
       margin-bottom: 4px !important;
+      border-radius: 10px !important;
     }
 
-    /* Nav sections — tighter spacing */
+    .nav-icon {
+      width: 18px !important;
+      height: 18px !important;
+    }
+
+    .nav-badge {
+      font-size: 0.68rem !important;
+      padding: 2px 7px !important;
+    }
+
+    /* Brand row — give it room */
+    .sidebar-brand {
+      padding: 4px 10px 20px !important;
+      margin-bottom: 12px !important;
+    }
+
+    /* Footer pinned to bottom, slightly bigger */
+    .sidebar-footer {
+      margin-top: auto !important;
+      padding-top: 20px !important;
+      font-size: 0.72rem !important;
+      color: var(--text-dim) !important;
+    }
+  }
+
+  /* Shorter phones — still fit without scroll */
+  @media (max-width: 900px) and (max-height: 700px) {
+    .sidebar {
+      padding-top: 80px !important;
+    }
+
+    .nav-section {
+      margin-bottom: 16px !important;
+    }
+
+    .nav-btn {
+      padding: 10px 12px !important;
+      font-size: 0.88rem !important;
+    }
+  }
+
+  /* Very short screens */
+  @media (max-width: 900px) and (max-height: 600px) {
+    .sidebar {
+      padding-top: 76px !important;
+    }
+
     .nav-section {
       margin-bottom: 12px !important;
     }
 
-    .nav-label {
-      font-size: 0.6rem !important;
-      margin-bottom: 4px !important;
-      padding: 0 10px !important;
-    }
-
     .nav-btn {
-      padding: 7px 10px !important;
-      font-size: 0.82rem !important;
-      gap: 9px !important;
-    }
-
-    .nav-icon {
-      width: 15px !important;
-      height: 15px !important;
-    }
-
-    .nav-badge {
-      font-size: 0.6rem !important;
-      padding: 1px 5px !important;
-    }
-
-    /* Footer pinned to the bottom, smaller */
-    .sidebar-footer {
-      margin-top: auto !important;
-      padding-top: 12px !important;
-      font-size: 0.68rem !important;
-    }
-  }
-
-  /* Extra small phones — squeeze a bit more */
-  @media (max-width: 480px) {
-    .sidebar {
-      padding-top: 72px !important;
-    }
-
-    .sidebar-brand {
-      padding: 2px 10px 10px !important;
-    }
-
-    .nav-section {
-      margin-bottom: 10px !important;
-    }
-
-    .nav-btn {
-      padding: 6px 10px !important;
-      font-size: 0.78rem !important;
-    }
-
-    .nav-icon {
-      width: 14px !important;
-      height: 14px !important;
-    }
-  }
-
-  /* Landscape phones — no vertical room, use two columns */
-  @media (max-height: 500px) and (orientation: landscape) {
-    .sidebar {
-      padding-top: 12px !important;
-      overflow-y: auto !important;
-    }
-
-    .sidebar-brand {
-      padding: 0 10px 8px !important;
+      padding: 8px 12px !important;
+      font-size: 0.85rem !important;
     }
   }
 '''
@@ -111,7 +117,7 @@ NEW_CSS = '''
 
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Sidebar Fits Viewport")
+    print(" VoiceKit — Fill Sidebar Space")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -123,7 +129,7 @@ def patch():
     with open(HTML, "r", encoding="utf-8") as f:
         src = f.read()
 
-    if 'SIDEBAR: FIT IN VIEWPORT' in src:
+    if 'SIDEBAR: FILL THE MOBILE SPACE' in src:
         print("  Already applied.")
         return
 
@@ -132,15 +138,7 @@ def patch():
     with open(HTML, "w", encoding="utf-8") as f:
         f.write(src)
 
-    print("  [OK] Sidebar now fits the viewport")
-    print()
-    print(" What changed:")
-    print("   • No scroll inside the sidebar on mobile")
-    print("   • Tighter nav spacing (smaller padding, gaps)")
-    print("   • Brand row compressed")
-    print("   • Footer pinned to the bottom")
-    print("   • Extra squeeze on phones under 480px")
-    print("   • Landscape mode falls back to scroll")
+    print("  [OK] Sidebar now fills space with comfortable spacing")
     print()
     print(" Deploy:")
     print("   vercel --prod")
