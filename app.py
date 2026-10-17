@@ -824,6 +824,21 @@ def stats():
                 {"day": str(r["day"]), "visits": r["gens"], "uniques": r["uniques"]}
                 for r in (daily or [])
             ],
+            "devices": [
+                {
+                    "id": r["device_id"],
+                    "count": r["n"],
+                    "first_seen": r["first_seen"].isoformat() if r["first_seen"] else None,
+                    "last_seen": r["last_seen"].isoformat() if r["last_seen"] else None
+                }
+                for r in (db_execute(
+                    "SELECT device_id, COUNT(*) AS n, "
+                    "MIN(created_at) AS first_seen, MAX(created_at) AS last_seen "
+                    "FROM history GROUP BY device_id "
+                    "ORDER BY n DESC",
+                    fetch=True
+                ) or [])
+            ],
             "recent": [
                 {
                     "full_device_id": r["device_id"],
