@@ -574,6 +574,45 @@ def fix_audio_attack(wav_bytes):
         print(f"[audio-fix] failed: {e}")
         return wav_bytes  # Return original if anything breaks
 
+
+# ============================================================
+# AUDIO POST-PROCESSING (Lead-in Silence)
+# ============================================================
+def add_lead_silence(wav_bytes, seconds=1.0):
+    """
+    Adds pure silence to the start of the WAV.
+    Fixes the 'quiet start' issue and prevents browser clipping.
+    """
+    try:
+        import numpy as np
+        import soundfile as sf
+        import io
+
+        # Read WAV
+        data, samplerate = sf.read(io.BytesIO(wav_bytes), dtype='float32')
+        
+        # Create silence
+        silence_samples = int(samplerate * seconds)
+        
+        if data.ndim > 1:
+            # Stereo
+            silence = np.zeros((silence_samples, data.shape[1]), dtype='float32')
+        else:
+            # Mono
+            silence = np.zeros(silence_samples, dtype='float32')
+        
+        # Concatenate silence + audio
+        new_data = np.concatenate([silence, data], axis=0)
+        
+        # Write back to WAV
+        out = io.BytesIO()
+        sf.write(out, new_data, samplerate, format='WAV', subtype='PCM_16')
+        return out.getvalue()
+
+    except Exception as e:
+        print(f"[audio-silence] failed: {e}")
+        return wav_bytes  # Return original if anything breaks
+
 # ============================================================
 # ROUTES
 # ============================================================
@@ -634,7 +673,10 @@ def speak():
 
         # Fix the quiet-start issue
         wav_bytes = fix_audio_attack(wav_bytes)
-        print(f"[speak] after audio fix: {len(wav_bytes)} bytes")
+        
+        # Add 1 second of silence at the start
+        wav_bytes = add_lead_silence(wav_bytes, seconds=1.0)
+        print(f"[speak] after audio processing: {len(wav_bytes)} bytes")
 
         # Upload to Cloudinary
         audio_url = None

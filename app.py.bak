@@ -505,6 +505,75 @@ def upload_to_cloudinary(wav_bytes, voice, device_id=""):
 
 
 
+
+# ============================================================
+# AUDIO POST-PROCESSING
+# ============================================================
+def fix_audio_attack(wav_bytes):
+    """
+    Fixes the 'quiet start then loud' issue.
+    1. Trims leading silence.
+    2. Normalizes to -1 dBFS.
+    3. Boosts the first 250ms if it's quieter than the rest.
+    """
+    try:
+        import numpy as np
+        import soundfile as sf
+        import io
+
+        # Read WAV
+        data, samplerate = sf.read(io.BytesIO(wav_bytes), dtype='float32')
+        
+        # Handle mono/stereo
+        if data.ndim > 1:
+            mono = data.mean(axis=1)
+        else:
+            mono = data
+
+        # 1. Trim leading silence (under -40dB)
+        threshold = 0.01
+        non_silent = np.where(np.abs(mono) > threshold)[0]
+        if len(non_silent) > 0:
+            start = non_silent[0]
+            # Keep 20ms before the first sound
+            start = max(0, start - int(samplerate * 0.02))
+            data = data[start:]
+            mono = mono[start:]
+
+        # 2. Normalize to -1 dBFS (0.89)
+        peak = np.max(np.abs(data))
+        if peak > 0:
+            target = 0.89
+            data = data * (target / peak)
+
+        # 3. Boost the first 250ms if it's quiet
+        attack_samples = int(samplerate * 0.25)
+        if len(data) > attack_samples:
+            first_chunk = data[:attack_samples]
+            first_peak = np.max(np.abs(first_chunk))
+            overall_peak = np.max(np.abs(data))
+            
+            if first_peak > 0 and first_peak < (overall_peak * 0.6):
+                # Boost first chunk so its peak matches 80% of overall
+                boost = (overall_peak * 0.8) / first_peak
+                # Apply smooth fade so it doesn't click
+                fade = np.linspace(0.5, 1.0, attack_samples)
+                data[:attack_samples] *= (boost * fade[:, np.newaxis] if data.ndim > 1 else boost * fade)
+
+        # Re-normalize after boost
+        peak = np.max(np.abs(data))
+        if peak > 0.95:
+            data = data * (0.95 / peak)
+
+        # Write back to WAV
+        out = io.BytesIO()
+        sf.write(out, data, samplerate, format='WAV', subtype='PCM_16')
+        return out.getvalue()
+
+    except Exception as e:
+        print(f"[audio-fix] failed: {e}")
+        return wav_bytes  # Return original if anything breaks
+
 # ============================================================
 # ROUTES
 # ============================================================
@@ -562,6 +631,10 @@ def speak():
         print(f"[speak] generating: {text[:40]!r} voice={voice}")
         wav_bytes = generate_speech(text, voice, speed)
         print(f"[speak] generated {len(wav_bytes)} bytes")
+
+        # Fix the quiet-start issue
+        wav_bytes = fix_audio_attack(wav_bytes)
+        print(f"[speak] after audio fix: {len(wav_bytes)} bytes")
 
         # Upload to Cloudinary
         audio_url = None
