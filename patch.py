@@ -1,5 +1,6 @@
 """
-Make the Audiobook preset a longer, immersive sentence.
+Clear the default text in the Generate box.
+Remove 'Listen closely' from voice previews so it doesn't leak into new generations.
 """
 
 import os
@@ -16,19 +17,9 @@ def backup(path):
         print(f"  backed up -> {os.path.relpath(path, BASE)}.bak")
 
 
-NEW_QUICK_BUTTONS = '''      <div class="quick">
-        <button data-p="Welcome back to the show.">Podcast Intro</button>
-        <button data-p="Chapter One. The story begins here. It was a cold morning in the city, and the streets were quiet.">Audiobook</button>
-        <button data-p="Here is how it works.">Explainer</button>
-        <button data-p="Introducing our new product.">Ad Read</button>
-        <button data-p="In today's news, a major scientific breakthrough has been announced that could change the future of renewable energy.">News Brief</button>
-        <button data-p="Relax. Close your eyes. Take a deep breath in, and slowly let it out. You are exactly where you need to be.">Meditation</button>
-      </div>'''
-
-
 def patch():
     print("=" * 60)
-    print(" VoiceKit — Longer Audiobook Preset")
+    print(" VoiceKit — Clear Default Text")
     print("=" * 60)
 
     if not os.path.exists(HTML):
@@ -42,14 +33,31 @@ def patch():
 
     original = src
 
-    # Replace the quick div
-    pattern = re.compile(r'<div class="quick">.*?</div>', re.DOTALL)
+    # 1. Clear the textarea default text
+    # Match the <textarea ...> ... </textarea> block
+    textarea_pattern = re.compile(
+        r'<textarea id="text"([^>]*)>.*?</textarea>',
+        re.DOTALL
+    )
     
-    if pattern.search(src):
-        src = pattern.sub(NEW_QUICK_BUTTONS, src, count=1)
-        print("  [OK] Audiobook preset is now longer")
+    if textarea_pattern.search(src):
+        src = textarea_pattern.sub(
+            r'<textarea id="text"\1></textarea>',
+            src,
+            count=1
+        )
+        print("  [OK] Cleared default textarea text")
     else:
-        print("  WARN: Could not find the quick phrases div")
+        print("  WARN: Could not find textarea")
+
+    # 2. Replace 'Listen closely' in the voice preview function
+    # We'll change it to something neutral but still short so preview works
+    old_preview_text = 'text: "Listen closely. You can barely tell this is not me talking.",'
+    new_preview_text = 'text: "This is a preview of the voice.",'
+    
+    if old_preview_text in src:
+        src = src.replace(old_preview_text, new_preview_text, 1)
+        print("  [OK] Updated voice preview text")
 
     if src == original:
         print("  No changes made.")
@@ -65,6 +73,8 @@ def patch():
     print(" Deploy:")
     print("   vercel --prod")
     print("   Hard-refresh: Ctrl + Shift + R")
+    print()
+    print(" The text box will now be empty when the page loads.")
     print("=" * 60)
 
 

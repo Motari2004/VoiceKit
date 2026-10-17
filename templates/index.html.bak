@@ -2410,9 +2410,9 @@
       </div>
 
       <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not me talking.</textarea>
-                        <div class="quick">
+                              <div class="quick">
         <button data-p="Welcome back to the show.">Podcast Intro</button>
-        <button data-p="Chapter One. The story begins here.">Audiobook</button>
+        <button data-p="Chapter One. The story begins here. It was a cold morning in the city, and the streets were quiet.">Audiobook</button>
         <button data-p="Here is how it works.">Explainer</button>
         <button data-p="Introducing our new product.">Ad Read</button>
         <button data-p="In today's news, a major scientific breakthrough has been announced that could change the future of renewable energy.">News Brief</button>

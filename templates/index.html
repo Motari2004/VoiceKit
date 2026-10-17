@@ -2409,7 +2409,7 @@
         <button class="change-btn" id="changeVoiceBtn">Change →</button>
       </div>
 
-      <textarea id="text" maxlength="800" placeholder="Type or paste your text here...">Listen closely. You can barely tell this is not me talking.</textarea>
+      <textarea id="text" maxlength="800" placeholder="Type or paste your text here..."></textarea>
                               <div class="quick">
         <button data-p="Welcome back to the show.">Podcast Intro</button>
         <button data-p="Chapter One. The story begins here. It was a cold morning in the city, and the streets were quiet.">Audiobook</button>
@@ -3365,7 +3365,7 @@ async function previewVoice(voiceId, btn) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text: "Listen closely. You can barely tell this is not me talking.",
+        text: "This is a preview of the voice.",
         voice: voiceId,
         speed: 1.0
       })
