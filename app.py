@@ -263,6 +263,30 @@ def init_db():
                         ADD COLUMN IF NOT EXISTS audio_url TEXT;
                     """)
 
+                
+                    # ---------- visits ----------
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS visits (
+                            id          SERIAL PRIMARY KEY,
+                            device_id   TEXT NOT NULL,
+                            page        TEXT,
+                            referrer    TEXT,
+                            user_agent  TEXT,
+                            country     TEXT,
+                            created_at  TIMESTAMPTZ DEFAULT NOW()
+                        );
+                    """)
+
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_visits_device
+                        ON visits (device_id, created_at DESC);
+                    """)
+
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_visits_date
+                        ON visits (created_at DESC);
+                    """)
+
                 conn.commit()
             print("[db] Tables ready")
         except Exception as e:
@@ -682,6 +706,129 @@ def delete_history():
     except Exception as e:
         return jsonify({"error": str(e)[:250]}), 500
 
+
+
+
+
+# ============================================================
+# VISIT TRACKING
+# ============================================================
+ADMIN_DEVICES = set(
+    d.strip() for d in os.environ.get("ADMIN_DEVICES", "").split(",") if d.strip()
+)
+
+
+@app.route("/track", methods=["POST", "OPTIONS"])
+def track_visit():
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    try:
+        data = request.get_json() or {}
+        device_id  = (data.get("device") or "").strip()
+        page       = (data.get("page") or "generate").strip()[:50]
+        referrer   = (data.get("referrer") or "")[:200]
+        user_agent = (request.headers.get("User-Agent") or "")[:200]
+        country    = (request.headers.get("x-vercel-ip-country") or "unknown")[:3]
+
+        if not device_id:
+            return jsonify({"error": "Missing device"}), 400
+        if not DATABASE_URL:
+            return jsonify({"status": "no-db"})
+
+        init_db()
+        db_execute(
+            "INSERT INTO visits (device_id, page, referrer, user_agent, country) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (device_id, page, referrer, user_agent, country),
+        )
+        return jsonify({"status": "tracked"})
+    except Exception as e:
+        print(f"[db] track failed: {e}")
+        return jsonify({"error": str(e)[:200]}), 500
+
+
+@app.route("/is-admin")
+def is_admin():
+    device_id = (request.args.get("device") or "").strip()
+    return jsonify({"admin": device_id in ADMIN_DEVICES})
+
+
+@app.route("/stats")
+def stats():
+    """Return aggregate visit statistics. Admin only."""
+    device_id = (request.args.get("device") or "").strip()
+    if device_id not in ADMIN_DEVICES:
+        return jsonify({"error": "forbidden"}), 403
+
+    if not DATABASE_URL:
+        return jsonify({"error": "no-db"}), 500
+
+    try:
+        init_db()
+
+        total = db_execute("SELECT COUNT(*) AS n FROM visits", fetch_one=True)
+        unique = db_execute("SELECT COUNT(DISTINCT device_id) AS n FROM visits", fetch_one=True)
+        today = db_execute(
+            "SELECT COUNT(*) AS n FROM visits WHERE created_at > NOW() - INTERVAL '1 day'",
+            fetch_one=True,
+        )
+        new_today = db_execute(
+            "SELECT COUNT(*) AS n FROM visits "
+            "WHERE created_at > NOW() - INTERVAL '1 day' "
+            "AND device_id NOT IN ("
+            "  SELECT device_id FROM visits WHERE created_at < NOW() - INTERVAL '1 day'"
+            ")",
+            fetch_one=True,
+        )
+        countries = db_execute(
+            "SELECT country, COUNT(*) AS n FROM visits "
+            "WHERE country IS NOT NULL AND country != 'unknown' "
+            "GROUP BY country ORDER BY n DESC LIMIT 10",
+            fetch=True,
+        )
+        pages = db_execute(
+            "SELECT page, COUNT(*) AS n FROM visits "
+            "GROUP BY page ORDER BY n DESC LIMIT 10",
+            fetch=True,
+        )
+        daily = db_execute(
+            "SELECT DATE(created_at) AS day, COUNT(*) AS visits, "
+            "COUNT(DISTINCT device_id) AS uniques "
+            "FROM visits WHERE created_at > NOW() - INTERVAL '14 days' "
+            "GROUP BY DATE(created_at) ORDER BY day DESC",
+            fetch=True,
+        )
+        recent = db_execute(
+            "SELECT device_id, page, country, created_at FROM visits "
+            "ORDER BY created_at DESC LIMIT 20",
+            fetch=True,
+        )
+
+        return jsonify({
+            "total": total["n"] if total else 0,
+            "unique_devices": unique["n"] if unique else 0,
+            "today": today["n"] if today else 0,
+            "new_today": new_today["n"] if new_today else 0,
+            "countries": [{"country": r["country"], "count": r["n"]} for r in (countries or [])],
+            "pages": [{"page": r["page"], "count": r["n"]} for r in (pages or [])],
+            "daily": [
+                {"day": str(r["day"]), "visits": r["visits"], "uniques": r["uniques"]}
+                for r in (daily or [])
+            ],
+            "recent": [
+                {
+                    "device": r["device_id"][:10] + "...",
+                    "page": r["page"],
+                    "country": r["country"],
+                    "at": r["created_at"].isoformat() if r["created_at"] else None,
+                }
+                for r in (recent or [])
+            ],
+        })
+    except Exception as e:
+        print(f"[stats] failed: {e}")
+        return jsonify({"error": str(e)[:200]}), 500
 
 
 # ============================================================
