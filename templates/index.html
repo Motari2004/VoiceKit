@@ -2522,8 +2522,12 @@
         <div class="api-label"><strong>curl</strong></div>
         <code class="api-code">curl -X POST https://voicekit-prod.vercel.app/speak \
   -H "Content-Type: application/json" \
-  -d '{"text":"Hello world","voice":"am_adam","speed":1.0}' \
-  -o voice.wav</code>
+  -d '{
+    "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
+    "voice": "am_michael",
+    "speed": 1.1
+  }' \
+  -o podcast_intro.wav</code>
       </div>
 
       <div class="api-block">
@@ -2533,13 +2537,13 @@
 response = requests.post(
     "https://voicekit-prod.vercel.app/speak",
     json={
-        "text": "Hello world",
-        "voice": "am_adam",
-        "speed": 1.0,
+        "text": "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
+        "voice": "am_michael",
+        "speed": 1.1,
     },
 )
 
-with open("voice.wav", "wb") as f:
+with open("podcast_intro.wav", "wb") as f:
     f.write(response.content)</code>
       </div>
 
@@ -2551,15 +2555,16 @@ with open("voice.wav", "wb") as f:
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      text: "Hello world",
-      voice: "am_adam",
-      speed: 1.0,
+      text: "Welcome to the show. Today we are exploring the future of AI voice synthesis.",
+      voice: "am_michael",
+      speed: 1.1,
     }),
   }
 );
 
 const blob = await response.blob();
-new Audio(URL.createObjectURL(blob)).play();</code>
+const url = URL.createObjectURL(blob);
+new Audio(url).play();</code>
       </div>
     </div>
   </section>
